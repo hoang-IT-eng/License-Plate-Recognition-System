@@ -1,0 +1,7 @@
+path: ../archive (1) copy
+train: train/images
+val: valid/images
+test: test/images
+
+nc: 1
+names: ['license_plate']

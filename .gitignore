@@ -1,0 +1,26 @@
+# Virtual environment
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# YOLO runs (weights nặng, không cần push)
+license-plate-recognition/runs/
+
+# Dataset (quá nặng)
+archive (1)/
+archive (1) copy/
+archive (2)/
+*.zip
+
+# Output
+output/
+output_v2/
+output_test/
+
+# Logs
+loi.txt
+result.txt
+*.log

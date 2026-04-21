@@ -1,0 +1,6 @@
+path: ../archive (2)
+train: images/train
+val: images/val
+
+nc: 2
+names: ['BSD', 'BSV']

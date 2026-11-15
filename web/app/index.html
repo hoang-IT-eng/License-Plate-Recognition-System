@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Plates App — Recognition shell</title>
+  <meta name="description" content="Plates recognition app shell: upload preview, pipeline steps, link to live HF OCR demo." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../styles.css" />
+</head>
+<body class="app-body">
+  <div class="app-shell">
+    <aside class="app-side">
+      <a class="logo" href="../">Plates</a>
+      <nav aria-label="App">
+        <a class="active" href="./">Recognize</a>
+        <a href="../#how">Pipeline</a>
+        <a href="../#demo">Demos</a>
+        <a href="https://huyahahdq23123-plates-yolo-ocr.static.hf.space" rel="noopener" target="_blank">HF OCR ↗</a>
+        <a href="https://github.com/hoang-IT-eng/License-Plate-Recognition-System" rel="noopener" target="_blank">Repo ↗</a>
+      </nav>
+      <p class="side-note">
+        F1 host = UI shell only. Full YOLOv8 + EasyOCR runs locally or on the free HF static Space (browser OCR).
+      </p>
+    </aside>
+
+    <div class="app-main">
+      <header class="app-top">
+        <div>
+          <h1>Recognition</h1>
+          <p>Upload a vehicle/plate photo — preview + pipeline checklist. Live OCR via HF demo.</p>
+        </div>
+        <div class="cta-row">
+          <a class="btn btn-teal" href="https://huyahahdq23123-plates-yolo-ocr.static.hf.space" rel="noopener" target="_blank">Run live OCR</a>
+          <a class="btn btn-outline" href="../">Back to landing</a>
+        </div>
+      </header>
+
+      <div class="banner">
+        This Azure shell does <strong>not</strong> execute YOLO on F1. For browser OCR use the
+        <a href="https://huyahahdq23123-plates-yolo-ocr.static.hf.space" rel="noopener" target="_blank">Hugging Face static Space</a>;
+        for the real Python stack, run <code>detect.py</code> from the repo.
+      </div>
+
+      <div class="workspace">
+        <section class="panel">
+          <h2>Capture</h2>
+          <label class="dropzone" id="dropzone">
+            <input id="file" type="file" accept="image/*" />
+            <div>
+              <strong>Drop image or click to browse</strong>
+              <span>JPG / PNG · plate or full vehicle frame</span>
+            </div>
+          </label>
+          <div class="preview-wrap" id="previewWrap">
+            <img id="preview" alt="Uploaded preview" />
+          </div>
+          <div class="meta-row" id="meta" hidden></div>
+        </section>
+
+        <section class="panel">
+          <h2>Readout</h2>
+          <ul class="result-list" id="results">
+            <li><span>Waiting for image…</span><span class="conf">—</span></li>
+          </ul>
+          <div class="pipeline-mini" aria-label="Pipeline status">
+            <div><i>1</i> Detect plate ROI (YOLO)</div>
+            <div><i>2</i> Preprocess crop</div>
+            <div><i>3</i> OCR allowlist read</div>
+            <div><i>4</i> Review / export</div>
+          </div>
+          <p style="margin:1.1rem 0 0;color:var(--muted);font-size:0.9rem">
+            After upload, open the HF demo with the same file for live text extraction, or run locally:
+          </p>
+          <pre class="cli" style="margin-top:0.65rem">python detect.py --source your.jpg --show</pre>
+        </section>
+      </div>
+    </div>
+  </div>
+  <script src="../main.js"></script>
+  <script>
+    (function () {
+      var drop = document.getElementById("dropzone");
+      var input = document.getElementById("file");
+      var preview = document.getElementById("preview");
+      var wrap = document.getElementById("previewWrap");
+      var results = document.getElementById("results");
+      var meta = document.getElementById("meta");
+      if (!drop || !input) return;
+
+      function setFile(file) {
+        if (!file || !file.type.startsWith("image/")) return;
+        var url = URL.createObjectURL(file);
+        preview.src = url;
+        wrap.classList.add("show");
+        meta.hidden = false;
+        meta.innerHTML =
+          '<span class="chip">' + file.name + "</span>" +
+          '<span class="chip">' + Math.round(file.size / 1024) + " KB</span>" +
+          '<span class="chip">Ready for HF / local OCR</span>';
+        results.innerHTML =
+          "<li><span>Preview loaded</span><span class=\"conf\">UI OK</span></li>" +
+          "<li><span>YOLO on this host</span><span class=\"conf\">Skipped (F1)</span></li>" +
+          "<li><span>Next</span><span class=\"conf\"><a href=\"https://huyahahdq23123-plates-yolo-ocr.static.hf.space\" target=\"_blank\" rel=\"noopener\">Open HF OCR</a></span></li>";
+      }
+
+      input.addEventListener("change", function () {
+        if (input.files && input.files[0]) setFile(input.files[0]);
+      });
+
+      ["dragenter", "dragover"].forEach(function (ev) {
+        drop.addEventListener(ev, function (e) {
+          e.preventDefault();
+          drop.classList.add("drag");
+        });
+      });
+      ["dragleave", "drop"].forEach(function (ev) {
+        drop.addEventListener(ev, function (e) {
+          e.preventDefault();
+          drop.classList.remove("drag");
+          if (ev === "drop" && e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]);
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

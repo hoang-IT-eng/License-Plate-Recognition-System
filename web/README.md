@@ -3,7 +3,7 @@
 Static frontend for brand host `plates-ocr` (Azure App Service **F1 Free**).
 
 - `/` — SaaS landing (hero, features, how it works, demo CTA, pricing)
-- `/app/` — recognition UI with **Tesseract.js** client-side OCR (reads File/canvas, not revoked blob URLs)
+- `/app/` — recognition UI: **plate ROI → preprocess → Tesseract.js on crop** (YOLO skipped on F1)
 - Mirror demo: https://huyahahdq23123-plates-yolo-ocr.static.hf.space (`../hf-space/`)
 
 YOLO/EasyOCR Python is **not** executed on F1. Run locally from `../license-plate-recognition/`.

@@ -3,13 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Plates App — Live recognition</title>
-  <meta name="description" content="Plates recognition: upload a plate photo and run browser OCR (Tesseract.js) on Azure F1." />
+  <title>Plates App — Live ROI + OCR</title>
+  <meta name="description" content="Plates recognition: client-side plate ROI crop then Tesseract.js OCR on Azure F1." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../styles.css" />
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script src="./plate-roi.js" defer></script>
   <script src="./ocr.js" defer></script>
 </head>
 <body class="app-body">
@@ -24,7 +25,7 @@
         <a href="https://github.com/hoang-IT-eng/License-Plate-Recognition-System" rel="noopener" target="_blank">Repo ↗</a>
       </nav>
       <p class="side-note">
-        F1 host runs <strong>browser OCR</strong> (Tesseract.js). Full YOLOv8 + EasyOCR stays local / HF PRO Gradio.
+        F1 runs <strong>plate ROI → OCR crop</strong> in-browser (contour/heuristics + Tesseract.js). YOLO/EasyOCR stays local / HF PRO Gradio.
       </p>
     </aside>
 
@@ -32,19 +33,18 @@
       <header class="app-top">
         <div>
           <h1>Recognition</h1>
-          <p>Upload a vehicle/plate photo — live plate text via Tesseract.js in the browser.</p>
+          <p>Upload a vehicle/plate photo — detect plate ROI, OCR the crop only.</p>
         </div>
         <div class="cta-row">
-          <button class="btn btn-teal" id="runOcr" type="button" disabled>Run OCR</button>
+          <button class="btn btn-teal" id="runOcr" type="button" disabled>Run ROI + OCR</button>
           <a class="btn btn-outline" href="../">Back to landing</a>
         </div>
       </header>
 
       <div class="banner">
-        YOLO detect is skipped on Azure F1. This page runs <strong>client-side OCR</strong> on the uploaded image
-        (same engine as the
-        <a href="https://huyahahdq23123-plates-yolo-ocr.static.hf.space" rel="noopener" target="_blank">HF static Space</a>).
-        For the Python stack, run <code>detect.py</code> locally.
+        YOLO weights are skipped on Azure F1. This page uses a <strong>lightweight client plate detector</strong>
+        (bright-blob + edge-window heuristics), then Tesseract.js on the <strong>cropped ROI</strong> — same path as the
+        <a href="https://huyahahdq23123-plates-yolo-ocr.static.hf.space" rel="noopener" target="_blank">HF static Space</a>.
       </div>
 
       <div class="workspace">
@@ -58,7 +58,7 @@
             </div>
           </label>
           <div class="preview-wrap" id="previewWrap">
-            <canvas id="preview" aria-label="Uploaded preview"></canvas>
+            <canvas id="preview" aria-label="Uploaded preview with ROI"></canvas>
           </div>
           <div class="meta-row" id="meta" hidden></div>
         </section>
@@ -70,9 +70,9 @@
           </ul>
           <pre class="cli" id="ocrJson" style="margin-top:1rem;max-height:220px;overflow:auto;font-size:0.8rem" hidden></pre>
           <div class="pipeline-mini" aria-label="Pipeline status">
-            <div><i>1</i> Detect plate ROI (YOLO) — skipped on F1</div>
-            <div><i>2</i> Preprocess crop — canvas pixels</div>
-            <div><i>3</i> OCR allowlist read — Tesseract.js</div>
+            <div><i>1</i> Detect plate ROI (client heuristics)</div>
+            <div><i>2</i> Preprocess crop — trim / equalize / 2×</div>
+            <div><i>3</i> OCR allowlist on crop — Tesseract.js</div>
             <div><i>4</i> Review / export</div>
           </div>
         </section>
@@ -92,7 +92,7 @@
       var runBtn = document.getElementById("runOcr");
       var ocrJson = document.getElementById("ocrJson");
       var ready = false;
-      var currentFile = null;
+      var sourceCanvas = null;
 
       function setResults(rows) {
         results.innerHTML = rows
@@ -104,13 +104,16 @@
 
       function setFile(file) {
         if (!file || !file.type.startsWith("image/")) return;
-        currentFile = file;
         var url = URL.createObjectURL(file);
         var img = new Image();
         img.onload = function () {
           canvas.width = img.width;
           canvas.height = img.height;
           ctx.drawImage(img, 0, 0);
+          sourceCanvas = document.createElement("canvas");
+          sourceCanvas.width = img.width;
+          sourceCanvas.height = img.height;
+          sourceCanvas.getContext("2d").drawImage(img, 0, 0);
           URL.revokeObjectURL(url);
           ready = true;
           wrap.classList.add("show");
@@ -118,13 +121,13 @@
           meta.innerHTML =
             '<span class="chip">' + file.name + "</span>" +
             '<span class="chip">' + Math.round(file.size / 1024) + " KB</span>" +
-            '<span class="chip">Ready for browser OCR</span>';
+            '<span class="chip">Ready for ROI + OCR</span>';
           runBtn.disabled = false;
           ocrJson.hidden = true;
           setResults([
             { label: "Preview loaded", value: "UI OK" },
             { label: "YOLO on this host", value: "Skipped (F1)" },
-            { label: "OCR", value: "Click Run OCR" },
+            { label: "Pipeline", value: "Click Run ROI + OCR" },
           ]);
         };
         img.onerror = function () {
@@ -137,21 +140,25 @@
       }
 
       async function runOcr() {
-        if (!ready || !canvas.width) return;
+        if (!ready || !sourceCanvas) return;
         runBtn.disabled = true;
         setResults([
-          { label: "OCR status", value: "Running…" },
+          { label: "OCR status", value: "Detecting ROI…" },
           { label: "YOLO on this host", value: "Skipped (F1)" },
         ]);
         try {
-          // Prefer File/Blob when available; canvas is the safe fallback after blob revoke.
-          var source = currentFile || canvas;
-          var out = await window.PlatesOcr.recognizePlate(source);
+          ctx.drawImage(sourceCanvas, 0, 0);
+          var out = await window.PlatesOcr.recognizePlate(sourceCanvas, {
+            sourceCanvas: sourceCanvas,
+            drawOn: ctx,
+          });
           var plate = out.plate_guess || out.full_text || "(no text)";
+          var roi = out.roi || {};
           setResults([
             { label: "Plate text", value: plate },
-            { label: "Full OCR", value: out.full_text || "—" },
-            { label: "Words ≥60%", value: String(out.count) },
+            { label: "ROI method", value: (roi.method || "—") + " @" + (roi.conf != null ? roi.conf : "—") },
+            { label: "Detections", value: String(out.count) },
+            { label: "Full OCR (crop)", value: out.full_text || "—" },
             { label: "Runtime", value: out.runtime },
           ]);
           ocrJson.hidden = false;

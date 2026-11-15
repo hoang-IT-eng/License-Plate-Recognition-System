@@ -8,10 +8,10 @@ pinned: false
 license: mit
 ---
 
-# Plates — browser OCR (static Space)
+# Plates — browser ROI + OCR (static Space)
 
-Tesseract.js demo for license-plate text. Full YOLOv8 + EasyOCR Gradio needs HF PRO.
+Client **plate ROI → preprocess → Tesseract.js on crop** (not full-frame OCR). Full YOLOv8 + EasyOCR Gradio needs HF PRO.
 
-**Fix note:** OCR reads canvas pixels (not a revoked `blob:` URL).
+Detector: bright-blob + edge-window heuristics (YOLO skipped on free static).
 
 Azure shell: https://plates-ocr.azurewebsites.net/app/

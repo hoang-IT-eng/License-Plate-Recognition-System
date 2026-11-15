@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Plates — License Plate Recognition SaaS</title>
+  <meta name="description" content="Plates: YOLOv8 detect + EasyOCR read for parking gates and ALPR workflows. Showcase + browser demo." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="site-nav">
+    <a class="nav-brand" href="./">Plates</a>
+    <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-menu">Menu</button>
+    <ul class="nav-links" id="nav-menu">
+      <li><a href="#features">Features</a></li>
+      <li><a href="#how">How it works</a></li>
+      <li><a href="#demo">Demo</a></li>
+      <li><a href="#pricing">Pricing</a></li>
+      <li><a class="nav-cta" href="./app/">Open app</a></li>
+    </ul>
+  </header>
+
+  <main id="main">
+    <section class="hero" aria-label="Hero">
+      <div class="hero-plane" aria-hidden="true"></div>
+      <div class="hero-content">
+        <p class="brand-mark">Plates</p>
+        <h2>Detect. Crop. Read — for gates &amp; lots.</h2>
+        <p class="hero-lede">
+          Nhận diện biển số bằng YOLOv8 + EasyOCR. Landing + app shell trên Azure F1;
+          demo OCR sống trên Hugging Face static Space.
+        </p>
+        <div class="cta-row">
+          <a class="btn btn-primary" href="./app/">Try recognition UI</a>
+          <a class="btn btn-ghost" href="https://huyahahdq23123-plates-yolo-ocr.static.hf.space" rel="noopener" target="_blank">Live OCR demo</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="features">
+      <div class="wrap">
+        <div class="section-head reveal">
+          <p class="section-kicker">Pipeline</p>
+          <h2>Built for real ALPR work, not slideware.</h2>
+          <p>Same stack as the repo: Ultralytics detect, plate preprocess, EasyOCR allowlist, eval scripts.</p>
+        </div>
+        <div class="feature-rail">
+          <article class="feature reveal">
+            <div class="feature-num">01</div>
+            <div>
+              <h3>Detect</h3>
+              <p>YOLOv8 / OBB weights find plate boxes in frame — <code>detect.py</code> / <code>detect_v2.py</code>.</p>
+            </div>
+          </article>
+          <article class="feature reveal reveal-delay-1">
+            <div class="feature-num">02</div>
+            <div>
+              <h3>Crop &amp; preprocess</h3>
+              <p>Border trim, histogram equalization, 2× cubic upscale so OCR sees cleaner glyphs.</p>
+            </div>
+          </article>
+          <article class="feature reveal reveal-delay-2">
+            <div class="feature-num">03</div>
+            <div>
+              <h3>OCR</h3>
+              <p>EasyOCR English allowlist with two-line plate assembly for Vietnamese layouts.</p>
+            </div>
+          </article>
+          <article class="feature reveal reveal-delay-3">
+            <div class="feature-num">04</div>
+            <div>
+              <h3>Evaluate</h3>
+              <p><code>evaluate_ocr.py</code> scores cropped plates against labeled text — iterate before you ship gates.</p>
+            </div>
+          </article>
+        </div>
+        <div class="visual-block reveal">
+          <figure>
+            <img src="./assets/pipeline.png" alt="YOLO to OCR pipeline diagram" width="1100" height="620" loading="lazy" />
+            <figcaption>Pipeline: source frame → YOLOv8 plate box → preprocess → EasyOCR text.</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="how" style="padding-top:0">
+      <div class="wrap">
+        <div class="section-head reveal">
+          <p class="section-kicker">How it works</p>
+          <h2>Three steps from frame to plate string.</h2>
+          <p>Local GPU/CPU for the full Python stack; this host stays a light SaaS shell.</p>
+        </div>
+        <div class="how-grid">
+          <div class="how-step reveal">
+            <span class="step-index">Step 01</span>
+            <h3>Ingest</h3>
+            <p>Camera still, folder batch, or upload in the app shell / HF demo.</p>
+          </div>
+          <div class="how-step reveal reveal-delay-1">
+            <span class="step-index">Step 02</span>
+            <h3>Localize</h3>
+            <p>YOLO draws the plate ROI; preprocess prepares the crop for OCR.</p>
+          </div>
+          <div class="how-step reveal reveal-delay-2">
+            <span class="step-index">Step 03</span>
+            <h3>Read &amp; review</h3>
+            <p>EasyOCR returns alnum text; compare with eval or watchlist workflows.</p>
+          </div>
+        </div>
+        <div class="visual-block reveal">
+          <figure>
+            <img src="./assets/architecture.png" alt="System architecture overview" width="1100" height="620" loading="lazy" />
+            <figcaption>Architecture overview used in the portfolio case.</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="demo" style="padding-top:0">
+      <div class="wrap">
+        <div class="demo-band reveal">
+          <h2>Try the demo — no paid GPU claimed here.</h2>
+          <p>
+            Full YOLOv8 + EasyOCR needs a roomy host (not App Service F1). Use the polished app shell,
+            or the free Hugging Face static Space for browser OCR. Source stays in GitHub.
+          </p>
+          <div class="cta-row">
+            <a class="btn btn-teal" href="./app/">Open Plates app</a>
+            <a class="btn btn-outline" href="https://huyahahdq23123-plates-yolo-ocr.static.hf.space" rel="noopener" target="_blank">HF static OCR</a>
+            <a class="btn btn-outline" href="https://github.com/hoang-IT-eng/License-Plate-Recognition-System" rel="noopener" target="_blank">GitHub repo</a>
+          </div>
+          <pre class="cli">pip install -r requirements.txt
+python train.py
+python detect.py --source path/to/image.jpg --show
+python evaluate_ocr.py</pre>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="pricing" style="padding-top:0">
+      <div class="wrap">
+        <div class="section-head reveal">
+          <p class="section-kicker">Pricing</p>
+          <h2>Honest free-tier packaging.</h2>
+          <p>No invented paid infra. What you see is what runs on student/free SKUs.</p>
+        </div>
+        <div class="pricing-grid">
+          <article class="price reveal">
+            <h3>Studio</h3>
+            <span class="tag">Free · open source</span>
+            <p>Clone the repo, train/detect locally, use this landing + app shell on Azure F1.</p>
+            <ul>
+              <li>YOLOv8 + EasyOCR scripts</li>
+              <li>Static SaaS UI on plates-ocr</li>
+              <li>HF static browser OCR demo</li>
+            </ul>
+          </article>
+          <article class="price reveal reveal-delay-1">
+            <h3>Ops</h3>
+            <span class="tag">Your hardware</span>
+            <p>Run the Python pipeline on a GPU/CPU box you control — gates, lots, campus cameras.</p>
+            <ul>
+              <li>Batch folders &amp; live cam scripts</li>
+              <li>OCR evaluation loop</li>
+              <li>Wire results into your own ACL / parking stack</li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <div>
+        <strong>Plates</strong> · plates-ocr · Azure App Service <em>F1 Free</em><br />
+        YOLO/EasyOCR runtime is not hosted on this free plan.
+      </div>
+      <div>
+        <a href="./assets/detect.py.txt">detect.py</a> ·
+        <a href="./assets/requirements.txt">requirements.txt</a> ·
+        <a href="https://github.com/hoang-IT-eng/License-Plate-Recognition-System">Source</a>
+      </div>
+    </div>
+  </footer>
+  <script src="./main.js"></script>
+</body>
+</html>

@@ -3,12 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Plates App — Recognition shell</title>
-  <meta name="description" content="Plates recognition app shell: upload preview, pipeline steps, link to live HF OCR demo." />
+  <title>Plates App — Live recognition</title>
+  <meta name="description" content="Plates recognition: upload a plate photo and run browser OCR (Tesseract.js) on Azure F1." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script src="./ocr.js" defer></script>
 </head>
 <body class="app-body">
   <div class="app-shell">
@@ -22,7 +24,7 @@
         <a href="https://github.com/hoang-IT-eng/License-Plate-Recognition-System" rel="noopener" target="_blank">Repo ↗</a>
       </nav>
       <p class="side-note">
-        F1 host = UI shell only. Full YOLOv8 + EasyOCR runs locally or on the free HF static Space (browser OCR).
+        F1 host runs <strong>browser OCR</strong> (Tesseract.js). Full YOLOv8 + EasyOCR stays local / HF PRO Gradio.
       </p>
     </aside>
 
@@ -30,18 +32,19 @@
       <header class="app-top">
         <div>
           <h1>Recognition</h1>
-          <p>Upload a vehicle/plate photo — preview + pipeline checklist. Live OCR via HF demo.</p>
+          <p>Upload a vehicle/plate photo — live plate text via Tesseract.js in the browser.</p>
         </div>
         <div class="cta-row">
-          <a class="btn btn-teal" href="https://huyahahdq23123-plates-yolo-ocr.static.hf.space" rel="noopener" target="_blank">Run live OCR</a>
+          <button class="btn btn-teal" id="runOcr" type="button" disabled>Run OCR</button>
           <a class="btn btn-outline" href="../">Back to landing</a>
         </div>
       </header>
 
       <div class="banner">
-        This Azure shell does <strong>not</strong> execute YOLO on F1. For browser OCR use the
-        <a href="https://huyahahdq23123-plates-yolo-ocr.static.hf.space" rel="noopener" target="_blank">Hugging Face static Space</a>;
-        for the real Python stack, run <code>detect.py</code> from the repo.
+        YOLO detect is skipped on Azure F1. This page runs <strong>client-side OCR</strong> on the uploaded image
+        (same engine as the
+        <a href="https://huyahahdq23123-plates-yolo-ocr.static.hf.space" rel="noopener" target="_blank">HF static Space</a>).
+        For the Python stack, run <code>detect.py</code> locally.
       </div>
 
       <div class="workspace">
@@ -55,7 +58,7 @@
             </div>
           </label>
           <div class="preview-wrap" id="previewWrap">
-            <img id="preview" alt="Uploaded preview" />
+            <canvas id="preview" aria-label="Uploaded preview"></canvas>
           </div>
           <div class="meta-row" id="meta" hidden></div>
         </section>
@@ -65,16 +68,13 @@
           <ul class="result-list" id="results">
             <li><span>Waiting for image…</span><span class="conf">—</span></li>
           </ul>
+          <pre class="cli" id="ocrJson" style="margin-top:1rem;max-height:220px;overflow:auto;font-size:0.8rem" hidden></pre>
           <div class="pipeline-mini" aria-label="Pipeline status">
-            <div><i>1</i> Detect plate ROI (YOLO)</div>
-            <div><i>2</i> Preprocess crop</div>
-            <div><i>3</i> OCR allowlist read</div>
+            <div><i>1</i> Detect plate ROI (YOLO) — skipped on F1</div>
+            <div><i>2</i> Preprocess crop — canvas pixels</div>
+            <div><i>3</i> OCR allowlist read — Tesseract.js</div>
             <div><i>4</i> Review / export</div>
           </div>
-          <p style="margin:1.1rem 0 0;color:var(--muted);font-size:0.9rem">
-            After upload, open the HF demo with the same file for live text extraction, or run locally:
-          </p>
-          <pre class="cli" style="margin-top:0.65rem">python detect.py --source your.jpg --show</pre>
         </section>
       </div>
     </div>
@@ -84,30 +84,97 @@
     (function () {
       var drop = document.getElementById("dropzone");
       var input = document.getElementById("file");
-      var preview = document.getElementById("preview");
+      var canvas = document.getElementById("preview");
+      var ctx = canvas.getContext("2d");
       var wrap = document.getElementById("previewWrap");
       var results = document.getElementById("results");
       var meta = document.getElementById("meta");
-      if (!drop || !input) return;
+      var runBtn = document.getElementById("runOcr");
+      var ocrJson = document.getElementById("ocrJson");
+      var ready = false;
+      var currentFile = null;
+
+      function setResults(rows) {
+        results.innerHTML = rows
+          .map(function (r) {
+            return "<li><span>" + r.label + "</span><span class=\"conf\">" + r.value + "</span></li>";
+          })
+          .join("");
+      }
 
       function setFile(file) {
         if (!file || !file.type.startsWith("image/")) return;
+        currentFile = file;
         var url = URL.createObjectURL(file);
-        preview.src = url;
-        wrap.classList.add("show");
-        meta.hidden = false;
-        meta.innerHTML =
-          '<span class="chip">' + file.name + "</span>" +
-          '<span class="chip">' + Math.round(file.size / 1024) + " KB</span>" +
-          '<span class="chip">Ready for HF / local OCR</span>';
-        results.innerHTML =
-          "<li><span>Preview loaded</span><span class=\"conf\">UI OK</span></li>" +
-          "<li><span>YOLO on this host</span><span class=\"conf\">Skipped (F1)</span></li>" +
-          "<li><span>Next</span><span class=\"conf\"><a href=\"https://huyahahdq23123-plates-yolo-ocr.static.hf.space\" target=\"_blank\" rel=\"noopener\">Open HF OCR</a></span></li>";
+        var img = new Image();
+        img.onload = function () {
+          canvas.width = img.width;
+          canvas.height = img.height;
+          ctx.drawImage(img, 0, 0);
+          URL.revokeObjectURL(url);
+          ready = true;
+          wrap.classList.add("show");
+          meta.hidden = false;
+          meta.innerHTML =
+            '<span class="chip">' + file.name + "</span>" +
+            '<span class="chip">' + Math.round(file.size / 1024) + " KB</span>" +
+            '<span class="chip">Ready for browser OCR</span>';
+          runBtn.disabled = false;
+          ocrJson.hidden = true;
+          setResults([
+            { label: "Preview loaded", value: "UI OK" },
+            { label: "YOLO on this host", value: "Skipped (F1)" },
+            { label: "OCR", value: "Click Run OCR" },
+          ]);
+        };
+        img.onerror = function () {
+          URL.revokeObjectURL(url);
+          ready = false;
+          runBtn.disabled = true;
+          setResults([{ label: "Decode failed", value: "Error" }]);
+        };
+        img.src = url;
       }
+
+      async function runOcr() {
+        if (!ready || !canvas.width) return;
+        runBtn.disabled = true;
+        setResults([
+          { label: "OCR status", value: "Running…" },
+          { label: "YOLO on this host", value: "Skipped (F1)" },
+        ]);
+        try {
+          // Prefer File/Blob when available; canvas is the safe fallback after blob revoke.
+          var source = currentFile || canvas;
+          var out = await window.PlatesOcr.recognizePlate(source);
+          var plate = out.plate_guess || out.full_text || "(no text)";
+          setResults([
+            { label: "Plate text", value: plate },
+            { label: "Full OCR", value: out.full_text || "—" },
+            { label: "Words ≥60%", value: String(out.count) },
+            { label: "Runtime", value: out.runtime },
+          ]);
+          ocrJson.hidden = false;
+          ocrJson.textContent = JSON.stringify(out, null, 2);
+        } catch (e) {
+          setResults([
+            { label: "OCR failed", value: String(e && e.message ? e.message : e) },
+          ]);
+          ocrJson.hidden = false;
+          ocrJson.textContent = JSON.stringify({ ok: false, error: String(e) }, null, 2);
+        } finally {
+          runBtn.disabled = !ready;
+        }
+      }
+
+      if (!drop || !input) return;
 
       input.addEventListener("change", function () {
         if (input.files && input.files[0]) setFile(input.files[0]);
+      });
+
+      runBtn.addEventListener("click", function () {
+        runOcr();
       });
 
       ["dragenter", "dragover"].forEach(function (ev) {

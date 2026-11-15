@@ -345,6 +345,13 @@ a:hover {
   color: #fff;
 }
 
+.btn-teal:disabled,
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
 .btn-outline {
   background: #fff;
   color: var(--ink);

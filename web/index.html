@@ -12,54 +12,74 @@
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
-  <a class="skip" href="#main">Bỏ qua tới nội dung chính</a>
+  <div class="grain" aria-hidden="true"></div>
+  <a class="skip" href="#main" data-i18n="skip">Bỏ qua tới nội dung chính</a>
+
+  <!-- Language switcher -->
+  <div class="lang-switch" id="lang-switch">
+    <button class="lang-pill" id="lang-pill" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="Language / Ngôn ngữ">
+      <svg class="lang-globe" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c2.5 2.6 3.9 5.7 3.9 9S14.5 18.4 12 21c-2.5-2.6-3.9-5.7-3.9-9S9.5 5.6 12 3Z" /></svg>
+      <span id="lang-current">VI</span>
+      <svg class="lang-chev" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+    </button>
+    <div class="lang-menu" id="lang-menu" role="listbox" aria-label="Language / Ngôn ngữ" hidden>
+      <button class="lang-opt" type="button" role="option" data-lang="vi" aria-selected="true">
+        <span>Tiếng Việt</span>
+        <svg class="lang-check" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="m4.5 12.5 5 5 10-11" /></svg>
+      </button>
+      <button class="lang-opt" type="button" role="option" data-lang="en" aria-selected="false">
+        <span>English</span>
+        <svg class="lang-check" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="m4.5 12.5 5 5 10-11" /></svg>
+      </button>
+    </div>
+  </div>
 
   <header class="site-nav">
-    <a class="nav-brand" href="./" aria-label="Plates — trang chủ">
+    <a class="nav-brand" href="./" data-i18n-alt="brand_aria" aria-label="Plates — trang chủ">
       <span class="brand-box" aria-hidden="true"><span></span></span>
       Plates<i>.</i>
     </a>
-    <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-menu">Menu</button>
+    <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-menu" data-i18n="nav_menu">Menu</button>
     <ul class="nav-links" id="nav-menu">
       <li><a href="#pipeline">Pipeline</a></li>
-      <li><a href="#features">Tính năng</a></li>
-      <li><a href="#system">Hệ thống</a></li>
+      <li><a href="#features" data-i18n="nav_features">Tính năng</a></li>
+      <li><a href="#system" data-i18n="nav_system">Hệ thống</a></li>
       <li><a href="#demo">Demo</a></li>
-      <li><a class="nav-cta" href="./app/">Mở app nhận diện</a></li>
+      <li><a class="nav-cta" href="./app/" data-i18n="nav_cta">Mở app nhận diện</a></li>
     </ul>
   </header>
 
   <main id="main">
     <!-- ============ HERO ============ -->
-    <section class="hero" aria-label="Giới thiệu">
+    <section class="hero" aria-label="Plates">
       <div class="hero-grid-bg" aria-hidden="true"></div>
       <div class="wrap hero-inner">
         <div class="hero-copy">
-          <p class="eyebrow reveal"><span class="dot-live" aria-hidden="true"></span> ANPR · NHẬN DIỆN BIỂN SỐ XE</p>
-          <h1 class="reveal">Từ khung hình<br />đến <em>biển số</em>,<br />trong tích tắc.</h1>
-          <p class="hero-lede reveal">
+          <p class="eyebrow reveal"><span class="dot-live" aria-hidden="true"></span> <span data-i18n="eyebrow">ANPR · NHẬN DIỆN BIỂN SỐ XE</span></p>
+          <h1 class="reveal" data-i18n="h1">Từ khung hình<br />đến <em>biển số</em>,<br />trong tích tắc.</h1>
+          <p class="hero-lede reveal" data-i18n="lede">
             Plates kết hợp <strong>YOLOv8</strong> để khoanh vùng biển số và <strong>EasyOCR</strong>
             để đọc ký tự — chạy trên từng ảnh, cả thư mục, hay camera trực tiếp.
             Không cần máy chủ GPU: bản demo đọc biển ngay trên trình duyệt của bạn.
           </p>
           <div class="cta-row reveal">
-            <a class="btn btn-accent" href="./app/">Dùng thử demo <span aria-hidden="true">→</span></a>
-            <a class="btn btn-ghost" href="#pipeline">Xem cách hoạt động</a>
+            <a class="btn btn-accent" href="./app/"><span data-i18n="cta_try">Dùng thử demo</span> <span aria-hidden="true">→</span></a>
+            <a class="btn btn-ghost" href="#pipeline" data-i18n="cta_how">Xem cách hoạt động</a>
           </div>
           <dl class="hero-stats reveal">
-            <div><dt>02</dt><dd>biến thể detector<br />YOLOv8 &amp; YOLOv8-OBB</dd></div>
-            <div><dt>04</dt><dd>bước trong pipeline<br />phát hiện → kết quả</dd></div>
-            <div><dt>02</dt><dd>cách vận hành<br />Python local · trình duyệt</dd></div>
+            <div><dt>02</dt><dd data-i18n="stat1">biến thể detector<br />YOLOv8 &amp; YOLOv8-OBB</dd></div>
+            <div><dt>04</dt><dd data-i18n="stat2">bước trong pipeline<br />phát hiện → kết quả</dd></div>
+            <div><dt>02</dt><dd data-i18n="stat3">cách vận hành<br />Python local · trình duyệt</dd></div>
           </dl>
         </div>
 
         <div class="hero-visual reveal" aria-hidden="true">
           <div class="cam-frame">
-            <div class="cam-hud cam-hud-tl">CAM 01 · CỔNG VÀO</div>
+            <div class="cam-hud cam-hud-tl" data-i18n="hud_gate">CAM 01 · CỔNG VÀO</div>
             <div class="cam-hud cam-hud-tr"><span class="rec"></span> LIVE</div>
-            <div class="cam-hud cam-hud-bl">1920 × 1080</div>
+            <div class="cam-hud cam-hud-bl" id="hud-time">--:--:--</div>
             <div class="cam-hud cam-hud-br">YOLOv8 · TRACKING</div>
-            <svg class="scene" viewBox="0 0 640 480" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Minh họa khung hình camera với biển số được khoanh vùng">
+            <svg class="scene" viewBox="0 0 640 480" preserveAspectRatio="xMidYMid slice" role="img" data-i18n-alt="scene_alt" aria-label="Minh họa khung hình camera với biển số được khoanh vùng">
               <defs>
                 <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0" stop-color="#101823" />
@@ -126,9 +146,10 @@
           <div class="ocr-readout">
             <span class="ocr-label">OCR OUTPUT</span>
             <span class="ocr-text" data-typewriter="59X1-000.00">59X1-000.00</span>
-            <span class="ocr-status">ĐÃ ĐỌC XONG</span>
+            <span class="ocr-frame" id="frame-no">FRAME 000000</span>
+            <span class="ocr-status" data-i18n="ocr_status">ĐÃ ĐỌC XONG</span>
           </div>
-          <p class="visual-note">Biển số trong hình là minh họa hư cấu.</p>
+          <p class="visual-note" data-i18n="visual_note">Biển số trong hình là minh họa hư cấu.</p>
         </div>
       </div>
       <div class="marquee" aria-hidden="true">
@@ -139,44 +160,60 @@
       </div>
     </section>
 
+    <!-- ============ NIGHT BAND ============ -->
+    <section class="night-band" aria-label="ANPR">
+      <img class="night-img" id="night-img" src="./img/anpr-night.jpg" alt="" width="1920" height="1280" loading="lazy" />
+      <div class="night-shade" aria-hidden="true"></div>
+      <span class="vf vf-tl" aria-hidden="true"></span>
+      <span class="vf vf-tr" aria-hidden="true"></span>
+      <span class="vf vf-bl" aria-hidden="true"></span>
+      <span class="vf vf-br" aria-hidden="true"></span>
+      <p class="night-word" aria-hidden="true">ANPR</p>
+      <div class="night-content wrap">
+        <p class="night-hud reveal">CAM 07 · GANTRY · 23:47 · RAIN</p>
+        <h2 class="reveal" data-i18n="night_h2">Trời tối, mưa, xe chạy nhanh —<br />biển vẫn phải đọc được.</h2>
+        <p class="night-cap reveal" data-i18n="night_cap">Ảnh minh họa AI: camera ANPR trên giàn cao tốc trong một đêm mưa.</p>
+      </div>
+    </section>
+
     <!-- ============ PIPELINE ============ -->
     <section class="section" id="pipeline">
       <div class="wrap">
         <div class="section-head reveal">
           <p class="kicker">01 — Pipeline</p>
-          <h2>Bốn bước từ ảnh thô<br />tới chuỗi biển số.</h2>
-          <p>Mỗi bước đều nằm trong mã nguồn Python của repo — không hộp đen, không dịch vụ trả phí.</p>
+          <h2 data-i18n="pipe_h2">Bốn bước từ ảnh thô<br />tới chuỗi biển số.</h2>
+          <p data-i18n="pipe_p">Mỗi bước đều nằm trong mã nguồn Python của repo — không hộp đen, không dịch vụ trả phí.</p>
         </div>
         <ol class="steps">
           <li class="step reveal">
             <span class="step-num">01</span>
             <div class="step-body">
-              <h3>Phát hiện <span>Detect</span></h3>
-              <p>YOLOv8 đã fine-tune trên lớp <code>license_plate</code> quét toàn khung hình và trả về hộp bao quanh biển số. Biến thể OBB trong <code>detect_v2.py</code> bắt được cả biển bị nghiêng theo góc chụp.</p>
+              <h3 data-i18n="s1_h">Phát hiện <span>Detect</span></h3>
+              <p data-i18n="s1_p">YOLOv8 đã fine-tune trên lớp <code>license_plate</code> quét toàn khung hình và trả về hộp bao quanh biển số. Biến thể OBB trong <code>detect_v2.py</code> bắt được cả biển bị nghiêng theo góc chụp.</p>
             </div>
             <span class="step-file">detect.py</span>
           </li>
           <li class="step reveal">
             <span class="step-num">02</span>
             <div class="step-body">
-              <h3>Cắt &amp; tiền xử lý <span>Crop · Preprocess</span></h3>
-              <p>Vùng biển được cắt theo ROI, chuyển sang ảnh xám, cân bằng histogram bằng <code>equalizeHist</code> rồi phóng lớn 2× với nội suy <code>INTER_CUBIC</code> để nét chữ sạch hơn trước khi đọc.</p>
+              <h3 data-i18n="s2_h">Cắt &amp; tiền xử lý <span>Crop · Preprocess</span></h3>
+              <p data-i18n="s2_p">Vùng biển được cắt theo ROI, chuyển sang ảnh xám, cân bằng histogram bằng <code>equalizeHist</code> rồi phóng lớn 2× với nội suy <code>INTER_CUBIC</code> để nét chữ sạch hơn trước khi đọc.</p>
             </div>
             <span class="step-file">preprocess_plate()</span>
           </li>
           <li class="step reveal">
             <span class="step-num">03</span>
             <div class="step-body">
-              <h3>Đọc ký tự <span>OCR</span></h3>
-              <p>EasyOCR đọc ký tự trong danh sách cho phép <code>0–9 A–Z</code>, rồi ghép kết quả theo đúng bố cục biển số Việt Nam hai dòng — phần số seri và phần số thứ tự không bị lẫn vào nhau.</p>
+              <h3 data-i18n="s3_h">Đọc ký tự <span>OCR</span></h3>
+              <p data-i18n="s3_p">EasyOCR đọc ký tự trong danh sách cho phép <code>0–9 A–Z</code>, rồi ghép kết quả theo đúng bố cục biển số Việt Nam hai dòng — phần số seri và phần số thứ tự không bị lẫn vào nhau.</p>
             </div>
             <span class="step-file">read_plate_text()</span>
           </li>
           <li class="step reveal">
             <span class="step-num">04</span>
             <div class="step-body">
-              <h3>Kết quả &amp; kiểm chứng <span>Result · Evaluate</span></h3>
-              <p>Chuỗi biển số hoàn chỉnh sẵn sàng cho cổng barrier, bãi xe hay danh sách theo dõi. Script <code>evaluate_ocr.py</code> chấm OCR trên tập ảnh crop có nhãn để đo và cải tiến qua từng vòng.</p>
+              <h3 data-i18n="s4_h">Kết quả &amp; kiểm chứng <span>Result · Evaluate</span></h3>
+              <p data-i18n="s4_p">Chuỗi biển số hoàn chỉnh sẵn sàng cho cổng barrier, bãi xe hay danh sách theo dõi. Script <code>evaluate_ocr.py</code> chấm OCR trên tập ảnh crop có nhãn để đo và cải tiến qua từng vòng.</p>
             </div>
             <span class="step-file">evaluate_ocr.py</span>
           </li>
@@ -188,40 +225,40 @@
     <section class="section section-alt" id="features">
       <div class="wrap">
         <div class="section-head reveal">
-          <p class="kicker">02 — Tính năng</p>
-          <h2>Đủ cho một hệ thống ANPR thật,</h2>
-          <p>không chỉ là một bản demo trình diễn.</p>
+          <p class="kicker" data-i18n="feat_kicker">02 — Tính năng</p>
+          <h2 data-i18n="feat_h2">Đủ cho một hệ thống ANPR thật,</h2>
+          <p data-i18n="feat_p">không chỉ là một bản demo trình diễn.</p>
         </div>
         <div class="feature-grid">
           <article class="feature reveal">
             <span class="feature-idx">F·01</span>
-            <h3>Hai detector song song</h3>
-            <p>Weights <code>yolov8n.pt</code> cho biển thẳng và <code>yolov8n-obb.pt</code> cho biển nghiêng — chọn model theo góc camera thực tế của bạn.</p>
+            <h3 data-i18n="f1_h">Hai detector song song</h3>
+            <p data-i18n="f1_p">Weights <code>yolov8n.pt</code> cho biển thẳng và <code>yolov8n-obb.pt</code> cho biển nghiêng — chọn model theo góc camera thực tế của bạn.</p>
           </article>
           <article class="feature reveal">
             <span class="feature-idx">F·02</span>
-            <h3>Tiền xử lý chuyên cho OCR</h3>
-            <p>Cân bằng sáng và phóng nét 2× ngay trong pipeline, giúp OCR đọc ổn định hơn trên ảnh mờ, thiếu sáng hay chụp từ xa.</p>
+            <h3 data-i18n="f2_h">Tiền xử lý chuyên cho OCR</h3>
+            <p data-i18n="f2_p">Cân bằng sáng và phóng nét 2× ngay trong pipeline, giúp OCR đọc ổn định hơn trên ảnh mờ, thiếu sáng hay chụp từ xa.</p>
           </article>
           <article class="feature reveal">
             <span class="feature-idx">F·03</span>
-            <h3>Hiểu biển số Việt Nam</h3>
-            <p>Ghép hai dòng theo bố cục biển Việt, allowlist chỉ gồm chữ và số nên kết quả ít nhiễu ký tự lạ.</p>
+            <h3 data-i18n="f3_h">Hiểu biển số Việt Nam</h3>
+            <p data-i18n="f3_p">Ghép hai dòng theo bố cục biển Việt, allowlist chỉ gồm chữ và số nên kết quả ít nhiễu ký tự lạ.</p>
           </article>
           <article class="feature reveal">
             <span class="feature-idx">F·04</span>
-            <h3>Camera trực tiếp &amp; xử lý hàng loạt</h3>
-            <p><code>cam.py</code> đọc biển từ webcam theo thời gian thực; <code>detect.py</code> quét cả thư mục ảnh và lưu kết quả theo lô.</p>
+            <h3 data-i18n="f4_h">Camera trực tiếp &amp; xử lý hàng loạt</h3>
+            <p data-i18n="f4_p"><code>cam.py</code> đọc biển từ webcam theo thời gian thực; <code>detect.py</code> quét cả thư mục ảnh và lưu kết quả theo lô.</p>
           </article>
           <article class="feature reveal">
             <span class="feature-idx">F·05</span>
-            <h3>Vòng lặp đánh giá khép kín</h3>
-            <p>Dataset crop kèm nhãn text để chấm điểm OCR sau mỗi lần đổi model hay thông số — cải tiến luôn có căn cứ từ chính dữ liệu của bạn.</p>
+            <h3 data-i18n="f5_h">Vòng lặp đánh giá khép kín</h3>
+            <p data-i18n="f5_p">Dataset crop kèm nhãn text để chấm điểm OCR sau mỗi lần đổi model hay thông số — cải tiến luôn có căn cứ từ chính dữ liệu của bạn.</p>
           </article>
           <article class="feature reveal">
             <span class="feature-idx">F·06</span>
-            <h3>Demo chạy ngay trên trình duyệt</h3>
-            <p>Bản web tự khoanh vùng biển (ROI), tiền xử lý và đọc bằng Tesseract.js phía client — mở trang là thử được, không cần cài Python.</p>
+            <h3 data-i18n="f6_h">Demo chạy ngay trên trình duyệt</h3>
+            <p data-i18n="f6_p">Bản web tự khoanh vùng biển (ROI), tiền xử lý và đọc bằng Tesseract.js phía client — mở trang là thử được, không cần cài Python.</p>
           </article>
         </div>
       </div>
@@ -231,27 +268,27 @@
     <section class="section" id="system">
       <div class="wrap">
         <div class="section-head reveal">
-          <p class="kicker">03 — Kiến trúc</p>
-          <h2>Một pipeline, hai mặt trận.</h2>
-          <p>Python đảm nhiệm độ chính xác ở máy local; bản web đảm nhiệm việc ai cũng chạm vào được. Cả hai dùng chung một tư duy: khoanh vùng trước, đọc sau.</p>
+          <p class="kicker" data-i18n="sys_kicker">03 — Kiến trúc</p>
+          <h2 data-i18n="sys_h2">Một pipeline, hai mặt trận.</h2>
+          <p data-i18n="sys_p">Python đảm nhiệm độ chính xác ở máy local; bản web đảm nhiệm việc ai cũng chạm vào được. Cả hai dùng chung một tư duy: khoanh vùng trước, đọc sau.</p>
         </div>
         <div class="figure-grid">
           <figure class="figure reveal">
-            <img src="./assets/pipeline.png" alt="Sơ đồ pipeline: khung hình → YOLOv8 khoanh biển → tiền xử lý → EasyOCR" width="1400" height="900" loading="lazy" />
-            <figcaption><span>FIG. 01</span> Pipeline xử lý: khung hình → hộp biển số → tiền xử lý → chuỗi ký tự.</figcaption>
+            <img src="./assets/pipeline.png" data-i18n-alt="fig1_alt" alt="Sơ đồ pipeline: khung hình → YOLOv8 khoanh biển → tiền xử lý → EasyOCR" width="1400" height="900" loading="lazy" />
+            <figcaption><span>FIG. 01</span> <span data-i18n="fig1_cap">Pipeline xử lý: khung hình → hộp biển số → tiền xử lý → chuỗi ký tự.</span></figcaption>
           </figure>
           <figure class="figure reveal">
-            <img src="./assets/architecture.png" alt="Sơ đồ kiến trúc tổng thể của hệ thống Plates" width="1400" height="900" loading="lazy" />
-            <figcaption><span>FIG. 02</span> Kiến trúc tổng thể: local Python, web app và bản mirror trên Hugging Face.</figcaption>
+            <img src="./assets/architecture.png" data-i18n-alt="fig2_alt" alt="Sơ đồ kiến trúc tổng thể của hệ thống Plates" width="1400" height="900" loading="lazy" />
+            <figcaption><span>FIG. 02</span> <span data-i18n="fig2_cap">Kiến trúc tổng thể: local Python, web app và bản mirror trên Hugging Face.</span></figcaption>
           </figure>
         </div>
-        <div class="repo-strip reveal" aria-label="Cấu trúc mã nguồn">
+        <div class="repo-strip reveal" aria-label="Repo">
           <div><code>train.py</code><span>fine-tune YOLOv8</span></div>
-          <div><code>detect.py</code><span>phát hiện + OCR</span></div>
-          <div><code>detect_v2.py</code><span>biến thể OBB</span></div>
-          <div><code>cam.py</code><span>camera trực tiếp</span></div>
-          <div><code>evaluate_ocr.py</code><span>đánh giá OCR</span></div>
-          <div><code>web/app/</code><span>demo trình duyệt</span></div>
+          <div><code>detect.py</code><span data-i18n="repo_detect">phát hiện + OCR</span></div>
+          <div><code>detect_v2.py</code><span data-i18n="repo_obb">biến thể OBB</span></div>
+          <div><code>cam.py</code><span data-i18n="repo_cam">camera trực tiếp</span></div>
+          <div><code>evaluate_ocr.py</code><span data-i18n="repo_eval">đánh giá OCR</span></div>
+          <div><code>web/app/</code><span data-i18n="repo_web">demo trình duyệt</span></div>
         </div>
       </div>
     </section>
@@ -261,24 +298,24 @@
       <div class="wrap">
         <div class="section-head reveal">
           <p class="kicker">04 — Demo</p>
-          <h2>Thử ngay, không cần cài đặt.</h2>
+          <h2 data-i18n="demo_h2">Thử ngay, không cần cài đặt.</h2>
         </div>
         <div class="demo-layout">
           <figure class="demo-shot reveal">
-            <img src="./assets/moto-plate-29b1.png" alt="Ảnh mẫu xe máy trong repo, biển số được khoanh vùng để OCR" width="720" height="540" loading="lazy" />
+            <img src="./assets/moto-plate-29b1.png" data-i18n-alt="demo_alt" alt="Ảnh mẫu xe máy trong repo, biển số được khoanh vùng để OCR" width="720" height="540" loading="lazy" />
             <span class="demo-box" aria-hidden="true"><span class="demo-box-label">license_plate</span></span>
-            <figcaption>Ảnh mẫu có sẵn trong repo — khung vàng là vùng biển hệ thống khoanh được trước khi OCR.</figcaption>
+            <figcaption data-i18n="demo_cap">Ảnh mẫu có sẵn trong repo — khung vàng là vùng biển hệ thống khoanh được trước khi OCR.</figcaption>
           </figure>
           <div class="demo-copy reveal">
-            <h3>Đọc biển ngay trong trình duyệt</h3>
-            <p>
+            <h3 data-i18n="demo_h3">Đọc biển ngay trong trình duyệt</h3>
+            <p data-i18n="demo_p">
               Bản demo web tự tìm vùng biển trong ảnh bạn tải lên, tiền xử lý bản crop
               rồi đọc bằng <strong>Tesseract.js</strong> — mọi thứ chạy phía client.
               Pipeline Python đầy đủ (YOLOv8 + EasyOCR) chạy ở máy local với các lệnh bên dưới.
             </p>
             <div class="cta-row">
-              <a class="btn btn-accent" href="./app/">Mở app nhận diện <span aria-hidden="true">→</span></a>
-              <a class="btn btn-ghost" href="https://huyahahdq23123-plates-yolo-ocr.static.hf.space" rel="noopener" target="_blank">Bản mirror HF Space</a>
+              <a class="btn btn-accent" href="./app/"><span data-i18n="nav_cta">Mở app nhận diện</span> <span aria-hidden="true">→</span></a>
+              <a class="btn btn-ghost" href="https://huyahahdq23123-plates-yolo-ocr.static.hf.space" rel="noopener" target="_blank" data-i18n="demo_mirror">Bản mirror HF Space</a>
             </div>
             <pre class="cli"><code>pip install -r requirements.txt
 python train.py
@@ -292,11 +329,11 @@ python evaluate_ocr.py</code></pre>
     <!-- ============ CTA ============ -->
     <section class="cta-band">
       <div class="wrap reveal">
-        <h2>Có sẵn toàn bộ mã nguồn<br />trên GitHub.</h2>
-        <p>Clone repo, huấn luyện lại trên dữ liệu của bạn, hoặc mở demo và thử ngay với ảnh của bạn.</p>
+        <h2 data-i18n="cta_h2">Có sẵn toàn bộ mã nguồn<br />trên GitHub.</h2>
+        <p data-i18n="cta_p">Clone repo, huấn luyện lại trên dữ liệu của bạn, hoặc mở demo và thử ngay với ảnh của bạn.</p>
         <div class="cta-row cta-center">
-          <a class="btn btn-accent" href="./app/">Dùng thử demo <span aria-hidden="true">→</span></a>
-          <a class="btn btn-ghost" href="https://github.com/hoang-IT-eng/License-Plate-Recognition-System" rel="noopener" target="_blank">Xem repo GitHub</a>
+          <a class="btn btn-accent" href="./app/"><span data-i18n="cta_try">Dùng thử demo</span> <span aria-hidden="true">→</span></a>
+          <a class="btn btn-ghost" href="https://github.com/hoang-IT-eng/License-Plate-Recognition-System" rel="noopener" target="_blank" data-i18n="cta_repo">Xem repo GitHub</a>
         </div>
       </div>
     </section>
@@ -306,17 +343,19 @@ python evaluate_ocr.py</code></pre>
     <div class="wrap footer-inner">
       <div class="footer-brand">
         <strong>Plates<i>.</i></strong>
-        <p>Hệ thống nhận diện biển số xe — YOLOv8 + EasyOCR.<br />Trang này và bản demo chạy trên hạ tầng free-tier; pipeline Python chạy local.</p>
+        <p data-i18n="foot_p">Hệ thống nhận diện biển số xe — YOLOv8 + EasyOCR.<br />Trang này và bản demo chạy trên hạ tầng free-tier; pipeline Python chạy local.</p>
       </div>
-      <nav class="footer-links" aria-label="Liên kết chân trang">
-        <a href="./app/">App nhận diện</a>
+      <nav class="footer-links" aria-label="Footer">
+        <a href="./app/" data-i18n="foot_app">App nhận diện</a>
         <a href="https://github.com/hoang-IT-eng/License-Plate-Recognition-System" rel="noopener" target="_blank">GitHub</a>
         <a href="./assets/requirements.txt">requirements.txt</a>
       </nav>
-      <p class="footer-credit">Thiết kế &amp; phát triển bởi <strong>Trần Huy Hoàng</strong></p>
+      <p class="footer-credit" data-i18n="foot_credit">Thiết kế &amp; phát triển bởi <strong>Trần Huy Hoàng</strong></p>
     </div>
   </footer>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
   <script src="./main.js"></script>
 </body>
 </html>

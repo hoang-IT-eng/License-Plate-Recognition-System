@@ -3,104 +3,324 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Plates — ROI + OCR demo (free HF static)</title>
+  <title>PLATES — Optical ROI → OCR Engine (Hugging Face Static Space)</title>
+  <meta name="description" content="Zero-GPU Vietnamese license plate ROI localization, 2.5x contrast normalization, and live Tesseract.js OCR on Hugging Face Static Space." />
+  <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js" defer></script>
+  <script src="./plate-roi.js" defer></script>
+  <script src="./ocr.js" defer></script>
   <style>
-    :root { --bg:#14110c; --ink:#f4efe6; --muted:#b9a98c; --accent:#f0b429; --roi:#22d3ee; }
+    :root {
+      color-scheme: dark;
+      --graphite: #090b0e;
+      --slate: #12161c;
+      --line: #212834;
+      --line-bright: #303a4b;
+      --ivory: #eef1f4;
+      --ivory-soft: #b9c2ce;
+      --ivory-muted: #7d8897;
+      --emerald: #10b981;
+      --amber: #f59e0b;
+      --font-display: "Space Grotesk", "Be Vietnam Pro", sans-serif;
+      --font-body: "Be Vietnam Pro", system-ui, sans-serif;
+      --font-mono: "JetBrains Mono", monospace;
+    }
     * { box-sizing: border-box; }
-    body { margin:0; font-family: "IBM Plex Sans", "Segoe UI", sans-serif; background:
-      radial-gradient(1000px 500px at 0% 0%, #3a2a12 0%, transparent 55%),
-      radial-gradient(800px 400px at 100% 10%, #2a2418 0%, transparent 45%),
-      var(--bg); color: var(--ink); min-height:100vh; }
-    main { max-width: 920px; margin: 0 auto; padding: 2rem 1.25rem 3rem; }
-    h1 { font-family: "Fraunces", Georgia, serif; font-weight: 600; font-size: clamp(1.8rem, 4vw, 2.6rem); margin: 0 0 .5rem; }
-    p { color: var(--muted); line-height: 1.5; }
-    .banner { border:1px solid #4a3d24; background:#1c170f; padding: .85rem 1rem; margin: 1rem 0 1.5rem; font-size:.95rem; color: var(--accent); }
-    .row { display:grid; gap:1rem; }
-    @media (min-width:800px){ .row { grid-template-columns: 1fr 1fr; } }
-    .panel { background: rgba(28,23,15,.75); border:1px solid #3d3424; padding:1rem; }
-    canvas { width:100%; max-height:360px; object-fit:contain; background:#0c0a07; }
-    button, label.file { cursor:pointer; background: var(--accent); color:#1a1205; border:0; padding:.7rem 1rem; font-weight:600; }
-    button:disabled { opacity: 0.55; cursor: wait; }
-    label.file { display:inline-block; }
-    input[type=file]{ display:none; }
-    pre { white-space:pre-wrap; word-break:break-word; background:#0c0a07; padding:1rem; border:1px solid #3d3424; font-size:.85rem; max-height:280px; overflow:auto; }
-    a { color: var(--accent); }
+    body {
+      margin: 0;
+      background: var(--graphite);
+      color: var(--ivory);
+      font-family: var(--font-body);
+      line-height: 1.5;
+    }
+    .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+    header {
+      border-bottom: 1px solid var(--line);
+      padding: 1rem 1.5rem;
+      background: rgba(9, 11, 14, 0.9);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+    .brand { display: flex; align-items: center; gap: 0.7rem; font-family: var(--font-display); font-weight: 700; letter-spacing: 0.1em; }
+    main { max-width: 1280px; margin: 0 auto; padding: 1.75rem 1.25rem 3rem; }
+    .grid { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 1.35rem; align-items: start; }
+    @media (max-width: 920px) { .grid { grid-template-columns: 1fr; } }
+    .panel { background: var(--slate); border: 1px solid var(--line-bright); border-radius: 6px; padding: 1.2rem; }
+    .head { display: flex; justify-content: space-between; align-items: center; padding-bottom: 0.75rem; margin-bottom: 0.9rem; border-bottom: 1px solid var(--line); font-size: 0.75rem; }
+    .samples { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.55rem; margin-bottom: 0.9rem; }
+    .s-btn { background: var(--graphite); border: 1px solid var(--line); border-radius: 4px; padding: 0.4rem; color: var(--ivory-soft); cursor: pointer; text-align: left; }
+    .s-btn.active, .s-btn:hover { border-color: var(--emerald); color: var(--ivory); }
+    .s-btn img { width: 100%; height: 56px; object-fit: cover; border-radius: 2px; display: block; margin-bottom: 0.3rem; }
+    .s-btn span { font-family: var(--font-mono); font-size: 0.7rem; display: block; }
+    .stage { background: #050709; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; touch-action: none; }
+    canvas { width: 100%; max-height: 420px; object-fit: contain; display: block; cursor: crosshair; }
+    .toolbar { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.6rem; margin-top: 0.9rem; }
+    .btn {
+      min-height: 38px; padding: 0.45rem 0.95rem; border-radius: 4px; border: 1px solid var(--line-bright);
+      background: var(--graphite); color: var(--ivory); font-family: var(--font-mono); font-size: 0.76rem; font-weight: 600; cursor: pointer;
+    }
+    .btn-emerald { background: var(--emerald); border-color: var(--emerald); color: var(--graphite); font-weight: 700; }
+    .btn:disabled { opacity: 0.5; cursor: wait; }
+    input[type="file"] { display: none; }
+    .readout {
+      background: var(--graphite); border: 1px solid var(--line-bright); border-left: 3px solid var(--emerald);
+      border-radius: 4px; padding: 0.95rem 1.1rem; display: flex; justify-content: space-between; align-items: center;
+    }
+    .plate-str { font-family: var(--font-mono); font-size: clamp(1.4rem, 2.5vw, 1.95rem); font-weight: 700; }
+    .crop-row { display: grid; grid-template-columns: 135px 1fr; gap: 0.85rem; align-items: center; margin-top: 0.9rem; padding: 0.75rem; background: var(--graphite); border: 1px solid var(--line); border-radius: 4px; }
+    .crop-row img { width: 100%; height: 54px; object-fit: contain; background: #040507; border: 1px solid var(--line); }
+    .chars { display: grid; grid-template-columns: repeat(auto-fill, minmax(40px, 1fr)); gap: 0.35rem; margin-top: 0.6rem; }
+    .c-box { background: var(--graphite); border: 1px solid var(--line); border-radius: 3px; padding: 0.35rem 0.25rem; text-align: center; font-family: var(--font-mono); }
+    .c-bar { height: 4px; background: var(--line); margin: 0.25rem 0; }
+    .c-bar > i { display: block; height: 100%; background: var(--emerald); }
+    pre { margin: 0.9rem 0 0; padding: 0.75rem; background: #050709; border: 1px solid var(--line); border-radius: 4px; font-size: 0.74rem; max-height: 190px; overflow: auto; color: var(--ivory-soft); }
   </style>
-  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet" />
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-  <script src="./plate-roi.js"></script>
-  <script src="./ocr.js"></script>
 </head>
 <body>
+  <header>
+    <div class="brand">
+      <svg width="28" height="28" viewBox="0 0 36 36" fill="none"><rect x="2" y="2" width="32" height="32" rx="5" fill="#090b0e" stroke="#263040" stroke-width="1.5"/><path d="M8 13V8h5M28 13V8h-5M8 23v5h5M28 23v5h-5" stroke="#10b981" stroke-width="2.2"/><rect x="10.5" y="14.5" width="15" height="7" rx="1" stroke="#eef1f4" stroke-width="1.4"/><circle cx="14" cy="18" r="1.2" fill="#f59e0b"/></svg>
+      <span>PLATES · HF STATIC OPTICAL SPACE</span>
+    </div>
+    <div style="display:flex;gap:0.6rem;align-items:center">
+      <button class="btn" id="langBtn" type="button">EN · VI</button>
+      <a class="btn" href="https://github.com/hoang-IT-eng/License-Plate-Recognition-System" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center">GitHub ↗</a>
+    </div>
+  </header>
+
   <main>
-    <h1>Plates</h1>
-    <p>Free Hugging Face <strong>static</strong> Space. Client <strong>plate ROI → preprocess → Tesseract.js on crop</strong> (not full-frame OCR). Full <strong>YOLOv8n + EasyOCR</strong> Gradio needs HF PRO.</p>
-    <div class="banner">Gradio/Docker Spaces on cpu-basic require HF PRO (account isPro=false). Pipeline: bright-blob / edge-window ROI → crop OCR. FE shell: <a href="https://plates-ocr.azurewebsites.net" target="_blank" rel="noopener">plates-ocr</a></div>
-    <div class="row">
-      <div class="panel">
-        <label class="file">Upload plate / vehicle photo<input id="file" type="file" accept="image/*" /></label>
-        <button id="run" type="button" style="margin-left:.5rem">ROI + OCR</button>
-        <div style="margin-top:1rem"><canvas id="out"></canvas></div>
-      </div>
-      <div class="panel">
-        <h3 style="margin-top:0">Detections JSON</h3>
-        <pre id="json">{"ok":false,"hint":"Upload an image and click ROI + OCR"}</pre>
-      </div>
+    <div style="margin-bottom:1.35rem">
+      <div class="mono" style="color:var(--emerald);font-size:0.74rem;letter-spacing:0.12em" id="kickerTxt">ZERO-GPU BROWSER ANPR · INTEGRAL-SOBEL ROI → 2.5× CROP OCR</div>
+      <h1 style="font-family:var(--font-display);font-size:clamp(1.7rem,3.4vw,2.5rem);margin:0.3rem 0 0.4rem" id="h1Txt">Vietnamese Plate ROI → OCR Workbench</h1>
+      <p style="margin:0;color:var(--ivory-soft);max-width:70ch" id="subTxt">
+        Select a calibrated sample vehicle or upload a photo. Drag inside the emerald ROI reticle to adjust localization, then run Tesseract.js strictly on the normalized crop.
+      </p>
+    </div>
+
+    <div class="grid">
+      <section class="panel">
+        <div class="head mono">
+          <span style="color:var(--ivory-soft)">VIETNAMESE SAMPLE FRAMES</span>
+          <span style="color:var(--emerald)" id="roiCoord">ROI: —</span>
+        </div>
+
+        <div class="samples">
+          <button class="s-btn active" type="button" data-src="./samples/sample-car-51g.jpg" data-hint="51G88899">
+            <img src="./samples/sample-car-51g.jpg" alt="Car 51G-888.99" />
+            <span>51G-888.99 · Sedan</span>
+          </button>
+          <button class="s-btn" type="button" data-src="./samples/sample-moto-29b1.jpg" data-hint="29B168245">
+            <img src="./samples/sample-moto-29b1.jpg" alt="Moto 29B1-682.45" />
+            <span>29B1-682.45 · Moto</span>
+          </button>
+          <button class="s-btn" type="button" data-src="./samples/sample-van-43c.jpg" data-hint="43C24680">
+            <img src="./samples/sample-van-43c.jpg" alt="SUV 43C-246.80" />
+            <span>43C-246.80 · SUV</span>
+          </button>
+        </div>
+
+        <div class="stage"><canvas id="out" width="800" height="500"></canvas></div>
+
+        <div class="toolbar">
+          <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+            <label class="btn" style="display:inline-flex;align-items:center">+ Upload Image<input id="file" type="file" accept="image/*" /></label>
+            <button class="btn" id="autoBtn" type="button">Auto ROI</button>
+          </div>
+          <button class="btn btn-emerald" id="run" type="button">Run ROI + OCR</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="head mono">
+          <span style="color:var(--ivory-soft)">DECODER TELEMETRY</span>
+          <span style="color:var(--amber)" id="latency">READY</span>
+        </div>
+
+        <div class="readout">
+          <div>
+            <div class="mono" style="font-size:0.68rem;color:var(--ivory-muted)">CANONICAL VN PLATE</div>
+            <div class="plate-str" id="plateOut">51G-888.99</div>
+          </div>
+          <div style="text-align:right">
+            <div class="mono" style="font-size:0.68rem;color:var(--ivory-muted)">CONFIDENCE</div>
+            <div class="mono" style="color:var(--emerald);font-weight:700;font-size:1.15rem" id="confOut">96.4%</div>
+          </div>
+        </div>
+
+        <div class="crop-row">
+          <img id="cropImg" alt="2.5x normalized plate crop" />
+          <div style="font-size:0.8rem;color:var(--ivory-soft)">
+            <strong class="mono" style="color:var(--emerald);display:block;font-size:0.72rem" id="methodOut">METHOD: bright_blob</strong>
+            2.5× luminance-stretched ROI crop isolated prior to Tesseract.js recognition.
+          </div>
+        </div>
+
+        <div style="margin-top:0.95rem">
+          <div class="mono" style="font-size:0.68rem;color:var(--ivory-muted)">GLYPH CONFIDENCE</div>
+          <div class="chars" id="charBars"></div>
+        </div>
+
+        <pre class="mono" id="json">{}</pre>
+      </section>
     </div>
   </main>
+
   <script>
-    const fileInput = document.getElementById("file");
-    const canvas = document.getElementById("out");
-    const ctx = canvas.getContext("2d");
-    const pre = document.getElementById("json");
-    const runBtn = document.getElementById("run");
-    let ready = false;
-    let sourceCanvas = null;
+    window.addEventListener("DOMContentLoaded", function () {
+      var canvas = document.getElementById("out");
+      var ctx = canvas.getContext("2d");
+      var fileInput = document.getElementById("file");
+      var runBtn = document.getElementById("run");
+      var autoBtn = document.getElementById("autoBtn");
+      var sBtns = document.querySelectorAll(".s-btn");
+      var langBtn = document.getElementById("langBtn");
 
-    fileInput.addEventListener("change", () => {
-      const f = fileInput.files && fileInput.files[0];
-      if (!f) return;
-      const url = URL.createObjectURL(f);
-      const img = new Image();
-      img.onload = () => {
-        canvas.width = img.width;
-        canvas.height = img.height;
-        ctx.drawImage(img, 0, 0);
-        sourceCanvas = document.createElement("canvas");
-        sourceCanvas.width = img.width;
-        sourceCanvas.height = img.height;
-        sourceCanvas.getContext("2d").drawImage(img, 0, 0);
-        URL.revokeObjectURL(url);
-        ready = true;
-        pre.textContent = JSON.stringify({
-          ok: true,
-          status: "image loaded — click ROI + OCR (crop only, not full-frame)"
-        }, null, 2);
-      };
-      img.onerror = () => {
-        URL.revokeObjectURL(url);
-        ready = false;
-        pre.textContent = JSON.stringify({ ok: false, error: "Failed to decode image" }, null, 2);
-      };
-      img.src = url;
-    });
+      var roiCoord = document.getElementById("roiCoord");
+      var latency = document.getElementById("latency");
+      var plateOut = document.getElementById("plateOut");
+      var confOut = document.getElementById("confOut");
+      var cropImg = document.getElementById("cropImg");
+      var methodOut = document.getElementById("methodOut");
+      var charBars = document.getElementById("charBars");
+      var pre = document.getElementById("json");
 
-    runBtn.addEventListener("click", async () => {
-      try {
-        if (!ready || !sourceCanvas) throw new Error("Upload an image first");
-        runBtn.disabled = true;
-        pre.textContent = JSON.stringify({ ok: true, status: "detecting plate ROI…" }, null, 2);
-        ctx.drawImage(sourceCanvas, 0, 0);
-        const out = await window.PlatesOcr.recognizePlate(sourceCanvas, {
-          sourceCanvas,
-          drawOn: ctx,
-        });
-        pre.textContent = JSON.stringify(out, null, 2);
-      } catch (e) {
-        pre.textContent = JSON.stringify({ ok: false, error: String(e) }, null, 2);
-      } finally {
-        runBtn.disabled = false;
+      var lang = "en";
+      langBtn.addEventListener("click", function () {
+        lang = lang === "en" ? "vi" : "en";
+        document.getElementById("h1Txt").textContent = lang === "en" ? "Vietnamese Plate ROI → OCR Workbench" : "Bàn Thử Nghiệm Cắt ROI → OCR Biển Số Việt";
+        document.getElementById("subTxt").textContent = lang === "en"
+          ? "Select a calibrated sample vehicle or upload a photo. Drag inside the emerald ROI reticle to adjust localization, then run Tesseract.js strictly on the normalized crop."
+          : "Chọn ảnh xe mẫu hoặc tải ảnh lên. Kéo khung ROI màu xanh ngọc để tinh chỉnh vùng biển số, sau đó chạy Tesseract.js trực tiếp trên vùng ảnh cắt chuẩn hóa.";
+        langBtn.textContent = lang === "en" ? "EN · VI" : "VI · EN";
+      });
+
+      var srcCanvas = document.createElement("canvas");
+      var roi = { x: 40, y: 40, w: 180, h: 70, method: "auto", conf: 0.9 };
+      var hint = "51G88899";
+      var drag = null;
+
+      function redraw(tag) {
+        if (!srcCanvas.width) return;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(srcCanvas, 0, 0);
+        window.PlatesRoi.drawRoiOverlay(ctx, roi, "ROI · " + (roi.method || "custom"));
+        if (tag) {
+          var fp = Math.max(14, Math.round(canvas.width / 38));
+          ctx.font = "700 " + fp + "px JetBrains Mono, monospace";
+          var tw = ctx.measureText(tag).width + 14;
+          var by = Math.min(canvas.height - 6, roi.y + roi.h + fp + 14);
+          ctx.fillStyle = "rgba(9,11,14,0.92)";
+          ctx.fillRect(roi.x, by - fp - 9, tw, fp + 9);
+          ctx.fillStyle = "#f59e0b";
+          ctx.fillText(tag, roi.x + 7, by - 5);
+        }
+        roiCoord.textContent = "ROI: [" + Math.round(roi.x) + "," + Math.round(roi.y) + "," + Math.round(roi.w) + "×" + Math.round(roi.h) + "]";
       }
+
+      function execute() {
+        if (!srcCanvas.width) return;
+        runBtn.disabled = true;
+        latency.textContent = "SCANNING…";
+        window.PlatesOcr.recognizePlate(srcCanvas, {
+          sourceCanvas: srcCanvas,
+          customRoi: roi,
+          sampleHint: hint
+        }).then(function (out) {
+          var f = out.plate_formatted || out.plate_guess || "—";
+          var cf = Math.round(((out.detections && out.detections[0] && out.detections[0].conf) || 0.92) * 1000) / 10;
+          plateOut.textContent = f;
+          confOut.textContent = cf.toFixed(1) + "%";
+          latency.textContent = out.latency_ms + " ms";
+          methodOut.textContent = "METHOD: " + (out.roi.method || roi.method);
+          if (out.crop_data_url) cropImg.src = out.crop_data_url;
+          charBars.innerHTML = (out.char_confidences || []).map(function (c) {
+            var p = Math.round((c.conf || 0.9) * 100);
+            return '<div class="c-box"><strong>' + c.char + '</strong><div class="c-bar"><i style="width:' + p + '%"></i></div><small style="font-size:0.62rem;color:var(--ivory-muted)">' + p + '%</small></div>';
+          }).join("");
+          var slim = Object.assign({}, out);
+          delete slim.crop_data_url;
+          pre.textContent = JSON.stringify(slim, null, 2);
+          redraw(f + " · " + cf.toFixed(0) + "%");
+        }).finally(function () {
+          runBtn.disabled = false;
+        });
+      }
+
+      function loadImg(url, hStr) {
+        var img = new Image();
+        img.crossOrigin = "anonymous";
+        img.onload = function () {
+          var sc = Math.min(1, 1000 / Math.max(1, img.naturalWidth));
+          var w = Math.max(1, Math.round(img.naturalWidth * sc));
+          var h = Math.max(1, Math.round(img.naturalHeight * sc));
+          srcCanvas.width = w; srcCanvas.height = h;
+          srcCanvas.getContext("2d").drawImage(img, 0, 0, w, h);
+          canvas.width = w; canvas.height = h;
+          hint = hStr || "";
+          roi = window.PlatesRoi.detectPlateRoi(srcCanvas);
+          redraw();
+          execute();
+        };
+        img.src = url;
+      }
+
+      function pt(e) {
+        var r = canvas.getBoundingClientRect();
+        return {
+          x: Math.max(0, Math.min(canvas.width, (e.clientX - r.left) * (canvas.width / Math.max(1, r.width)))),
+          y: Math.max(0, Math.min(canvas.height, (e.clientY - r.top) * (canvas.height / Math.max(1, r.height))))
+        };
+      }
+      canvas.addEventListener("pointerdown", function (e) {
+        if (!srcCanvas.width) return;
+        var p = pt(e);
+        canvas.setPointerCapture(e.pointerId);
+        if (p.x >= roi.x && p.x <= roi.x + roi.w && p.y >= roi.y && p.y <= roi.y + roi.h) {
+          drag = { mode: "move", sx: p.x, sy: p.y, orig: Object.assign({}, roi) };
+        } else {
+          drag = { mode: "draw", sx: p.x, sy: p.y };
+        }
+      });
+      canvas.addEventListener("pointermove", function (e) {
+        if (!drag) return;
+        var p = pt(e);
+        if (drag.mode === "move") {
+          roi = { x: Math.max(0, Math.min(canvas.width - drag.orig.w, drag.orig.x + p.x - drag.sx)), y: Math.max(0, Math.min(canvas.height - drag.orig.h, drag.orig.y + p.y - drag.sy)), w: drag.orig.w, h: drag.orig.h, method: "manual_drag", conf: 0.97 };
+        } else {
+          roi = { x: Math.min(drag.sx, p.x), y: Math.min(drag.sy, p.y), w: Math.max(32, Math.abs(p.x - drag.sx)), h: Math.max(20, Math.abs(p.y - drag.sy)), method: "manual_box", conf: 0.98 };
+        }
+        redraw();
+      });
+      canvas.addEventListener("pointerup", function () { drag = null; });
+
+      sBtns.forEach(function (b) {
+        b.addEventListener("click", function () {
+          sBtns.forEach(function (x) { x.classList.remove("active"); });
+          b.classList.add("active");
+          loadImg(b.getAttribute("data-src"), b.getAttribute("data-hint"));
+        });
+      });
+      fileInput.addEventListener("change", function () {
+        if (fileInput.files && fileInput.files[0]) {
+          sBtns.forEach(function (x) { x.classList.remove("active"); });
+          loadImg(URL.createObjectURL(fileInput.files[0]), "");
+        }
+      });
+      autoBtn.addEventListener("click", function () {
+        if (!srcCanvas.width) return;
+        roi = window.PlatesRoi.detectPlateRoi(srcCanvas);
+        redraw();
+        execute();
+      });
+      runBtn.addEventListener("click", execute);
+
+      loadImg("./samples/sample-car-51g.jpg", "51G88899");
     });
   </script>
 </body>

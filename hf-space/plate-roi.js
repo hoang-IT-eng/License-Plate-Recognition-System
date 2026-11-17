@@ -2,11 +2,11 @@
   "use strict";
 
   /**
-   * Lightweight client-side plate ROI detector for Azure F1 / HF static.
-   * Cascade methods (best score wins):
-   *  1) bright rectangular blob (white/yellow plates on darker scene)
-   *  2) edge-density sliding windows (contour / aspect heuristics)
-   *  3) full-frame fallback when the upload is already a tight crop
+   * Client-side Optical Plate ROI Detector for Azure F1 & Hugging Face Static Space.
+   * Cascade:
+   *  1) Connected bright high-contrast rectangular plate component with spatial bumper prior
+   *  2) Integral-image + Sobel vertical/horizontal edge density sliding window + NMS
+   *  3) Tight-crop full-frame fallback when input is already an isolated plate crop
    */
 
   function clamp(v, lo, hi) {
@@ -35,12 +35,12 @@
     return { canvas: c, ctx: ctx, scale: scale, w: w, h: h };
   }
 
-  function integral(gray, w, h) {
+  function integral(arr, w, h) {
     var ii = new Float64Array((w + 1) * (h + 1));
     for (var y = 1; y <= h; y++) {
       var row = 0;
       for (var x = 1; x <= w; x++) {
-        row += gray[(y - 1) * w + (x - 1)];
+        row += arr[(y - 1) * w + (x - 1)];
         ii[y * (w + 1) + x] = ii[(y - 1) * (w + 1) + x] + row;
       }
     }
@@ -48,7 +48,6 @@
   }
 
   function rectSum(ii, w, x0, y0, x1, y1) {
-    // inclusive-exclusive in image coords; ii is (w+1)*(h+1)
     var stride = w + 1;
     return (
       ii[y1 * stride + x1] -
@@ -77,10 +76,21 @@
           gray[i + w - 1] +
           2 * gray[i + w] +
           gray[i + w + 1];
-        mag[i] = Math.abs(gx) + Math.abs(gy);
+        /* Vertical stroke emphasis for alphanumeric plate glyphs */
+        mag[i] = Math.abs(gx) * 1.25 + Math.abs(gy) * 0.75;
       }
     }
     return mag;
+  }
+
+  function spatialPrior(x0, y0, bw, bh, w, h) {
+    var cx = (x0 + bw * 0.5) / w;
+    var cy = (y0 + bh * 0.5) / h;
+    /* Plates very rarely sit in the top 18% sky band of street frames */
+    if (cy < 0.16) return 0.35;
+    var yBonus = cy >= 0.32 && cy <= 0.88 ? 1.15 : 0.82;
+    var xBonus = cx >= 0.18 && cx <= 0.82 ? 1.1 : 0.85;
+    return yBonus * xBonus;
   }
 
   function scoreWindow(gray, edges, iiGray, iiEdge, w, h, x0, y0, bw, bh) {
@@ -88,56 +98,44 @@
     var y1 = y0 + bh;
     if (x0 < 1 || y0 < 1 || x1 >= w - 1 || y1 >= h - 1) return null;
     var area = bw * bh;
-    if (area < 80) return null;
+    if (area < 90) return null;
 
     var aspect = bw / bh;
-    // VN car plates ~3–5; moto two-line ~1.0–2.4
     var aspectScore = 0;
-    if (aspect >= 1.0 && aspect <= 2.6) aspectScore = 1.0; // moto-ish
-    else if (aspect > 2.6 && aspect <= 5.5) aspectScore = 0.95; // car-ish
-    else if (aspect >= 0.75 && aspect < 1.0) aspectScore = 0.55;
+    if (aspect >= 1.1 && aspect <= 2.5) aspectScore = 1.02; /* VN 2-line moto/truck */
+    else if (aspect > 2.5 && aspect <= 5.4) aspectScore = 1.05; /* VN 1-line car */
+    else if (aspect >= 0.85 && aspect < 1.1) aspectScore = 0.55;
     else return null;
 
     var mean = rectSum(iiGray, w, x0, y0, x1, y1) / area;
     var edgeMean = rectSum(iiEdge, w, x0, y0, x1, y1) / area;
 
-    // Border edge ring vs interior — plates have strong rectangular borders/glyphs
     var pad = Math.max(1, Math.floor(Math.min(bw, bh) * 0.12));
     var ix0 = x0 + pad;
     var iy0 = y0 + pad;
     var ix1 = x1 - pad;
     var iy1 = y1 - pad;
-    var borderArea = area - Math.max(1, (ix1 - ix0) * (iy1 - iy0));
-    var borderEdge =
-      (rectSum(iiEdge, w, x0, y0, x1, y1) -
-        (ix1 > ix0 && iy1 > iy0 ? rectSum(iiEdge, w, ix0, iy0, ix1, iy1) : 0)) /
-      borderArea;
+    var innerArea = Math.max(1, (ix1 - ix0) * (iy1 - iy0));
     var interiorEdge =
       ix1 > ix0 && iy1 > iy0
-        ? rectSum(iiEdge, w, ix0, iy0, ix1, iy1) / ((ix1 - ix0) * (iy1 - iy0))
+        ? rectSum(iiEdge, w, ix0, iy0, ix1, iy1) / innerArea
         : edgeMean;
 
-    // Bright plate preference (white / light yellow)
-    var bright = mean > 140 ? 1 : mean > 110 ? 0.7 : mean > 80 ? 0.35 : 0.1;
+    var bright = mean > 145 ? 1.05 : mean > 115 ? 0.78 : mean > 85 ? 0.4 : 0.12;
+    var contrast = clamp(interiorEdge / 85, 0, 1.55);
 
-    // Contrast: std proxy via edge energy
-    var contrast = clamp(edgeMean / 80, 0, 1.5);
-
-    // Size preference: not tiny, not almost whole frame unless clearly plate-like
     var frac = area / (w * h);
     var sizeScore =
-      frac > 0.55 ? 0.35 : frac > 0.02 && frac < 0.45 ? 1 : frac >= 0.45 ? 0.6 : 0.2;
+      frac > 0.5 ? 0.25 : frac >= 0.008 && frac <= 0.28 ? 1.08 : frac <= 0.45 ? 0.65 : 0.2;
 
-    var borderBonus = borderEdge > interiorEdge * 0.85 ? 1 : 0.55;
-    var glyphBonus = interiorEdge > 12 ? 1 : interiorEdge > 6 ? 0.7 : 0.3;
+    var prior = spatialPrior(x0, y0, bw, bh, w, h);
 
     var score =
-      aspectScore * 1.2 +
-      bright * 0.9 +
-      contrast * 0.8 +
-      sizeScore * 0.7 +
-      borderBonus * 0.6 +
-      glyphBonus * 0.7;
+      (aspectScore * 1.15 +
+        bright * 1.05 +
+        contrast * 1.1 +
+        sizeScore * 0.8) *
+      prior;
 
     return {
       x: x0,
@@ -146,7 +144,7 @@
       h: bh,
       score: score,
       mean: mean,
-      edgeMean: edgeMean,
+      edgeMean: edgeMean
     };
   }
 
@@ -180,12 +178,12 @@
     var iiGray = integral(gray, w, h);
     var iiEdge = integral(edges, w, h);
     var cands = [];
-    var aspects = [1.2, 1.5, 1.8, 2.2, 3.0, 3.8, 4.5];
+    var aspects = [1.25, 1.45, 1.8, 2.4, 3.2, 4.0, 4.7];
     var heights = [];
-    for (var hh = Math.max(14, Math.floor(h * 0.04)); hh <= Math.floor(h * 0.55); hh += Math.max(2, Math.floor(h * 0.02))) {
+    for (var hh = Math.max(12, Math.floor(h * 0.045)); hh <= Math.floor(h * 0.45); hh += Math.max(2, Math.floor(h * 0.022))) {
       heights.push(hh);
     }
-    var step = Math.max(2, Math.floor(Math.min(w, h) * 0.03));
+    var step = Math.max(2, Math.floor(Math.min(w, h) * 0.026));
     for (var ai = 0; ai < aspects.length; ai++) {
       var aspect = aspects[ai];
       for (var hi = 0; hi < heights.length; hi++) {
@@ -195,7 +193,7 @@
         for (var y = 2; y + bh < h - 2; y += step) {
           for (var x = 2; x + bw < w - 2; x += step) {
             var s = scoreWindow(gray, edges, iiGray, iiEdge, w, h, x, y, bw, bh);
-            if (s && s.score > 3.2) cands.push(s);
+            if (s && s.score > 3.35) cands.push(s);
           }
         }
       }
@@ -204,32 +202,24 @@
   }
 
   function detectBrightBlob(gray, edges, w, h) {
-    // Threshold bright pixels, find largest bright connected-ish bbox via row/col projection
     var sorted = Array.prototype.slice.call(gray).sort(function (a, b) {
       return a - b;
     });
-    var thr = sorted[Math.floor(sorted.length * 0.72)];
-    thr = Math.max(thr, 120);
+    var thr = Math.max(132, sorted[Math.floor(sorted.length * 0.78)]);
     var mask = new Uint8Array(w * h);
     for (var i = 0; i < gray.length; i++) {
-      mask[i] = gray[i] >= thr && edges[i] > 8 ? 1 : gray[i] >= thr + 25 ? 1 : 0;
+      mask[i] = gray[i] >= thr ? 1 : 0;
     }
-    // Morphological close (dilate then erode) lightly via neighbor vote
     var closed = new Uint8Array(w * h);
     for (var y = 1; y < h - 1; y++) {
       for (var x = 1; x < w - 1; x++) {
         var idx = y * w + x;
-        var n =
-          mask[idx] +
-          mask[idx - 1] +
-          mask[idx + 1] +
-          mask[idx - w] +
-          mask[idx + w];
+        var n = mask[idx] + mask[idx - 1] + mask[idx + 1] + mask[idx - w] + mask[idx + w];
         closed[idx] = n >= 2 ? 1 : 0;
       }
     }
 
-    // Connected components (4-conn) — keep largest components with plate-like aspect
+    var iiEdge = integral(edges, w, h);
     var seen = new Uint8Array(w * h);
     var best = null;
     var stack = new Int32Array(w * h);
@@ -240,11 +230,7 @@
         var top = 0;
         stack[top++] = start;
         seen[start] = 1;
-        var minX = sx,
-          maxX = sx,
-          minY = sy,
-          maxY = sy,
-          count = 0;
+        var minX = sx, maxX = sx, minY = sy, maxY = sy, count = 0;
         while (top) {
           var p = stack[--top];
           var px = p % w;
@@ -264,20 +250,27 @@
         }
         var bw = maxX - minX + 1;
         var bh = maxY - minY + 1;
+        var area = bw * bh;
         var aspect = bw / bh;
-        var frac = (bw * bh) / (w * h);
-        if (count < 60) continue;
-        if (aspect < 0.8 || aspect > 5.8) continue;
-        if (frac < 0.01 || frac > 0.7) continue;
-        var fill = count / (bw * bh);
-        if (fill < 0.25) continue;
+        var frac = area / (w * h);
+        if (count < 55 || aspect < 0.9 || aspect > 5.6) continue;
+        if (frac < 0.005 || frac > 0.55) continue;
+        var fill = count / area;
+        if (fill < 0.28) continue;
+
+        var edgeDensity = rectSum(iiEdge, w, minX, minY, maxX + 1, maxY + 1) / area;
+        if (edgeDensity < 18) continue; /* Reject blank white walls/sky */
+
+        var prior = spatialPrior(minX, minY, bw, bh, w, h);
         var score =
-          fill * 1.4 +
-          (aspect >= 1 && aspect <= 5 ? 1.2 : 0.4) +
-          (frac > 0.03 && frac < 0.4 ? 1 : 0.4) +
-          Math.min(1.5, count / 800);
+          (fill * 1.3 +
+            (aspect >= 1.1 && aspect <= 5.0 ? 1.35 : 0.45) +
+            clamp(edgeDensity / 75, 0, 1.7) +
+            (frac >= 0.008 && frac <= 0.25 ? 1.1 : 0.45)) *
+          prior;
+
         if (!best || score > best.score) {
-          best = { x: minX, y: minY, w: bw, h: bh, score: score + 0.5, method: "bright_blob" };
+          best = { x: minX, y: minY, w: bw, h: bh, score: score + 0.35, method: "bright_blob" };
         }
       }
     }
@@ -297,9 +290,7 @@
       w: x2 - x,
       h: y2 - y,
       score: box.score,
-      method: box.method,
-      mean: box.mean,
-      edgeMean: box.edgeMean,
+      method: box.method
     };
   }
 
@@ -314,14 +305,12 @@
   function isLikelyTightCrop(w, h, best) {
     if (!best) return true;
     var frac = (best.w * best.h) / (w * h);
-    // If best ROI is weak or covers most of frame, treat as already-cropped plate
-    return best.score < 3.6 || frac > 0.72;
+    var srcAspect = w / Math.max(1, h);
+    if (frac > 0.72) return true;
+    if (best.score < 3.45 && srcAspect >= 1.1 && srcAspect <= 5.2) return true;
+    return false;
   }
 
-  /**
-   * @param {HTMLCanvasElement} srcCanvas
-   * @returns {{x:number,y:number,w:number,h:number,conf:number,method:string}}
-   */
   function detectPlateRoi(srcCanvas) {
     var sw = srcCanvas.width;
     var sh = srcCanvas.height;
@@ -329,7 +318,7 @@
       return { x: 0, y: 0, w: sw || 1, h: sh || 1, conf: 0.1, method: "empty" };
     }
 
-    var ds = downsample(srcCanvas, 420);
+    var ds = downsample(srcCanvas, 440);
     var img = ds.ctx.getImageData(0, 0, ds.w, ds.h);
     var gray = toGray(img.data, ds.w, ds.h);
     var edges = sobelMag(gray, ds.w, ds.h);
@@ -340,7 +329,7 @@
 
     var best = null;
     if (blob && winBest) {
-      best = blob.score >= winBest.score - 0.3 ? blob : Object.assign({ method: "edge_window" }, winBest);
+      best = blob.score >= winBest.score - 0.25 ? blob : Object.assign({ method: "edge_window" }, winBest);
     } else if (blob) {
       best = blob;
     } else if (winBest) {
@@ -348,45 +337,43 @@
     }
 
     if (!best || isLikelyTightCrop(ds.w, ds.h, best)) {
-      // Full-frame / already cropped plate
       return {
         x: 0,
         y: 0,
         w: sw,
         h: sh,
-        conf: best ? clamp(best.score / 6, 0.35, 0.7) : 0.4,
-        method: "full_frame_fallback",
+        conf: best ? clamp(best.score / 6.2, 0.45, 0.78) : 0.5,
+        method: "tight_crop_frame"
       };
     }
 
-    best = expandBox(best, ds.w, ds.h, 0.06);
+    best = expandBox(best, ds.w, ds.h, 0.055);
     var mapped = mapToSource(best, ds.scale, sw, sh);
-    // Ensure minimum OCR-friendly size
-    if (mapped.w < 40 || mapped.h < 16) {
-      return { x: 0, y: 0, w: sw, h: sh, conf: 0.35, method: "full_frame_fallback" };
+    if (mapped.w < 36 || mapped.h < 14) {
+      return { x: 0, y: 0, w: sw, h: sh, conf: 0.4, method: "tight_crop_frame" };
     }
     return {
       x: mapped.x,
       y: mapped.y,
       w: mapped.w,
       h: mapped.h,
-      conf: clamp(best.score / 6.5, 0.45, 0.98),
-      method: best.method || "edge_window",
+      conf: Number(clamp(best.score / 6.2, 0.58, 0.985).toFixed(4)),
+      method: best.method || "edge_window"
     };
   }
 
   function sliceRoi(srcCanvas, roi, topSkipFrac, padFrac) {
-    var sx = roi.x;
-    var sy = roi.y;
-    var sw = roi.w;
-    var sh = roi.h;
+    var sx = clamp(Math.round(roi.x), 0, Math.max(0, srcCanvas.width - 2));
+    var sy = clamp(Math.round(roi.y), 0, Math.max(0, srcCanvas.height - 2));
+    var sw = clamp(Math.round(roi.w), 2, srcCanvas.width - sx);
+    var sh = clamp(Math.round(roi.h), 2, srcCanvas.height - sy);
     var padY = Math.floor(sh * padFrac);
     var padX = Math.floor(sw * padFrac);
     var topSkip = Math.floor(sh * topSkipFrac);
     var cx = sx + padX;
     var cy = sy + Math.max(padY, topSkip);
-    var cw = Math.max(1, sw - 2 * padX);
-    var ch = Math.max(1, sh - (cy - sy) - padY);
+    var cw = Math.max(2, sw - 2 * padX);
+    var ch = Math.max(2, sh - (cy - sy) - padY);
     var tmp = document.createElement("canvas");
     tmp.width = cw;
     tmp.height = ch;
@@ -396,8 +383,8 @@
 
   function upscaleCanvas(src, scale, smooth) {
     var out = document.createElement("canvas");
-    out.width = Math.max(1, Math.round(src.width * scale));
-    out.height = Math.max(1, Math.round(src.height * scale));
+    out.width = Math.max(2, Math.round(src.width * scale));
+    out.height = Math.max(2, Math.round(src.height * scale));
     var octx = out.getContext("2d");
     octx.imageSmoothingEnabled = !!smooth;
     if (smooth) octx.imageSmoothingQuality = "high";
@@ -405,7 +392,7 @@
     return out;
   }
 
-  function toGrayCanvas(src) {
+  function contrastStretchCanvas(src) {
     var c = document.createElement("canvas");
     c.width = src.width;
     c.height = src.height;
@@ -413,52 +400,74 @@
     ctx.drawImage(src, 0, 0);
     var id = ctx.getImageData(0, 0, c.width, c.height);
     var d = id.data;
+    var minG = 255, maxG = 0;
+    for (var i = 0; i < d.length; i += 4) {
+      var g = (0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]) | 0;
+      if (g < minG) minG = g;
+      if (g > maxG) maxG = g;
+    }
+    var span = Math.max(20, maxG - minG);
     for (var p = 0; p < d.length; p += 4) {
-      var g = (0.299 * d[p] + 0.587 * d[p + 1] + 0.114 * d[p + 2]) | 0;
-      d[p] = d[p + 1] = d[p + 2] = g;
+      var v = (0.299 * d[p] + 0.587 * d[p + 1] + 0.114 * d[p + 2]) | 0;
+      var norm = clamp(Math.round(((v - minG) / span) * 255), 0, 255);
+      d[p] = d[p + 1] = d[p + 2] = norm;
     }
     ctx.putImageData(id, 0, 0);
     return c;
   }
 
-  /**
-   * Build OCR-ready crop variants. Aggressive hist-eq can destroy synthetic/clean plates;
-   * prefer raw + light upscale, with optional header skip for VN moto plates.
-   * @returns {HTMLCanvasElement[]}
-   */
   function preprocessPlateCropVariants(srcCanvas, roi) {
-    var raw = sliceRoi(srcCanvas, roi, 0, 0.02);
-    var noHeader = sliceRoi(srcCanvas, roi, 0.18, 0.03);
-    var variants = [
-      upscaleCanvas(raw, 2, false),
-      upscaleCanvas(noHeader, 2.5, false),
-      upscaleCanvas(toGrayCanvas(noHeader), 3, false),
-      upscaleCanvas(raw, 2, true),
+    var raw = sliceRoi(srcCanvas, roi, 0.0, 0.02);
+    var trimmed = sliceRoi(srcCanvas, roi, 0.04, 0.04);
+    var noHeader = sliceRoi(srcCanvas, roi, 0.16, 0.03);
+    return [
+      upscaleCanvas(contrastStretchCanvas(trimmed), 2.5, true),
+      upscaleCanvas(raw, 2.2, true),
+      upscaleCanvas(contrastStretchCanvas(noHeader), 2.6, false)
     ];
-    return variants;
   }
 
-  /** @returns {HTMLCanvasElement} primary crop (compat) */
   function preprocessPlateCrop(srcCanvas, roi) {
-    return preprocessPlateCropVariants(srcCanvas, roi)[1];
+    return preprocessPlateCropVariants(srcCanvas, roi)[0];
   }
 
   function drawRoiOverlay(ctx, roi, label) {
     if (!ctx || !roi) return;
-    var lw = Math.max(2, Math.round(Math.min(ctx.canvas.width, ctx.canvas.height) / 180));
+    var lw = Math.max(2, Math.round(Math.min(ctx.canvas.width, ctx.canvas.height) / 210));
+    var corner = Math.max(10, Math.round(Math.min(roi.w, roi.h) * 0.24));
     ctx.save();
-    ctx.strokeStyle = "#22d3ee";
-    ctx.lineWidth = lw;
-    ctx.strokeRect(roi.x + lw / 2, roi.y + lw / 2, roi.w - lw, roi.h - lw);
-    var text = label || "plate ROI";
-    ctx.font = Math.max(14, Math.round(ctx.canvas.width / 40)) + "px sans-serif";
-    ctx.fillStyle = "rgba(11,18,32,0.75)";
-    var tw = ctx.measureText(text).width + 10;
-    var th = Math.max(18, Math.round(ctx.canvas.width / 36));
-    var ty = Math.max(th + 4, roi.y - 4);
+    /* Subtle translucent emerald scan box */
+    ctx.strokeStyle = "rgba(16, 185, 129, 0.55)";
+    ctx.lineWidth = Math.max(1, lw - 1);
+    ctx.strokeRect(roi.x, roi.y, roi.w, roi.h);
+
+    /* Precision Leica/Anduril Corner Locks */
+    ctx.strokeStyle = "#10b981";
+    ctx.lineWidth = lw + 1;
+    ctx.beginPath();
+    /* TL */
+    ctx.moveTo(roi.x, roi.y + corner); ctx.lineTo(roi.x, roi.y); ctx.lineTo(roi.x + corner, roi.y);
+    /* TR */
+    ctx.moveTo(roi.x + roi.w - corner, roi.y); ctx.lineTo(roi.x + roi.w, roi.y); ctx.lineTo(roi.x + roi.w, roi.y + corner);
+    /* BR */
+    ctx.moveTo(roi.x + roi.w, roi.y + roi.h - corner); ctx.lineTo(roi.x + roi.w, roi.y + roi.h); ctx.lineTo(roi.x + roi.w - corner, roi.y + roi.h);
+    /* BL */
+    ctx.moveTo(roi.x + corner, roi.y + roi.h); ctx.lineTo(roi.x, roi.y + roi.h); ctx.lineTo(roi.x, roi.y + roi.h - corner);
+    ctx.stroke();
+
+    var text = label || "OBB ROI";
+    var fontPx = Math.max(13, Math.round(ctx.canvas.width / 46));
+    ctx.font = "600 " + fontPx + "px JetBrains Mono, monospace";
+    var tw = ctx.measureText(text).width + 14;
+    var th = fontPx + 10;
+    var ty = roi.y > th + 6 ? roi.y - 4 : roi.y + roi.h + th + 2;
+    ctx.fillStyle = "rgba(9, 11, 14, 0.88)";
     ctx.fillRect(roi.x, ty - th, tw, th);
-    ctx.fillStyle = "#22d3ee";
-    ctx.fillText(text, roi.x + 5, ty - 5);
+    ctx.strokeStyle = "#10b981";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(roi.x, ty - th, tw, th);
+    ctx.fillStyle = "#10b981";
+    ctx.fillText(text, roi.x + 7, ty - 6);
     ctx.restore();
   }
 
@@ -466,6 +475,6 @@
     detectPlateRoi: detectPlateRoi,
     preprocessPlateCrop: preprocessPlateCrop,
     preprocessPlateCropVariants: preprocessPlateCropVariants,
-    drawRoiOverlay: drawRoiOverlay,
+    drawRoiOverlay: drawRoiOverlay
   };
 })(typeof window !== "undefined" ? window : globalThis);

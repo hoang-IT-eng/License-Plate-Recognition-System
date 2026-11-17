@@ -1,201 +1,360 @@
 <!doctype html>
-<html lang="vi">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Plates App — Live ROI + OCR</title>
-  <meta name="description" content="Plates recognition: client-side plate ROI crop then Tesseract.js OCR on Azure F1." />
+  <title>PLATES Studio — Interactive ROI → OCR Workbench</title>
+  <meta name="description" content="PLATES optical recognition studio: interactive Vietnamese plate ROI localization, 2.5x luminance stretch, and live Tesseract.js OCR." />
+  <link rel="icon" type="image/svg+xml" href="../assets/favicon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../styles.css" />
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js" defer></script>
   <script src="./plate-roi.js" defer></script>
   <script src="./ocr.js" defer></script>
 </head>
 <body class="app-body">
   <div class="app-shell">
     <aside class="app-side">
-      <a class="logo" href="../">Plates</a>
-      <nav aria-label="App">
-        <a class="active" href="./">Recognize</a>
-        <a href="../#how">Pipeline</a>
-        <a href="../#demo">Demos</a>
-        <a href="https://huyahahdq23123-plates-yolo-ocr.static.hf.space" rel="noopener" target="_blank">HF OCR ↗</a>
-        <a href="https://github.com/hoang-IT-eng/License-Plate-Recognition-System" rel="noopener" target="_blank">Repo ↗</a>
+      <a class="logo" href="../">
+        <svg width="28" height="28" viewBox="0 0 36 36" fill="none" aria-hidden="true">
+          <rect x="2" y="2" width="32" height="32" rx="5" fill="#090b0e" stroke="#263040" stroke-width="1.5"/>
+          <path d="M8 13V8h5M28 13V8h-5M8 23v5h5M28 23v5h-5" stroke="#10b981" stroke-width="2.2" stroke-linecap="square"/>
+          <rect x="10.5" y="14.5" width="15" height="7" rx="1" stroke="#eef1f4" stroke-width="1.4"/>
+          <circle cx="14" cy="18" r="1.2" fill="#f59e0b"/>
+        </svg>
+        <span>PLATES</span>
+      </a>
+
+      <nav aria-label="Studio Navigation">
+        <a class="active" href="./" data-s-i18n="nav_studio">Optical Studio</a>
+        <a href="../#pipeline" data-s-i18n="nav_pipe">4-Stage Pipeline</a>
+        <a href="../#benchmarks" data-s-i18n="nav_bench">Benchmarks</a>
+        <a href="https://huyahahdq23123-plates-yolo-ocr.static.hf.space" rel="noopener" target="_blank">HF Static Space ↗</a>
+        <a href="https://github.com/hoang-IT-eng/License-Plate-Recognition-System" rel="noopener" target="_blank">GitHub Repo ↗</a>
       </nav>
-      <p class="side-note">
-        F1 runs <strong>plate ROI → OCR crop</strong> in-browser (contour/heuristics + Tesseract.js). YOLO/EasyOCR stays local / HF PRO Gradio.
-      </p>
+
+      <div class="side-note">
+        <strong style="color:var(--emerald);display:block;margin-bottom:0.3rem;font-family:var(--font-mono);font-size:0.72rem">EDGE EXECUTION MODE</strong>
+        <span data-s-i18n="side_note">Runs integral-Sobel + bright-blob ROI localization and 2.5× contrast-stretched Tesseract.js directly in your browser. Zero server GPU required.</span>
+      </div>
     </aside>
 
     <div class="app-main">
       <header class="app-top">
         <div>
-          <h1>Recognition</h1>
-          <p>Upload a vehicle/plate photo — detect plate ROI, OCR the crop only.</p>
+          <div class="kicker-line" style="margin-bottom:0.4rem">OPTICAL STUDIO · /APP</div>
+          <h1 style="margin:0;font-family:var(--font-display);font-size:clamp(1.6rem,3vw,2.25rem)" data-s-i18n="title">Interactive ROI → OCR Studio</h1>
         </div>
-        <div class="cta-row">
-          <button class="btn btn-teal" id="runOcr" type="button" disabled>Run ROI + OCR</button>
-          <a class="btn btn-outline" href="../">Back to landing</a>
+        <div class="cta-row" style="margin-top:0">
+          <button class="lang-btn" id="studioLangBtn" type="button">EN · VI</button>
+          <button class="btn btn--sm btn-slate" id="autoRoiBtn" type="button" data-s-i18n="auto_btn">Auto-Detect ROI</button>
+          <button class="btn btn--sm btn-emerald" id="runOcr" type="button" data-s-i18n="run_btn">Run ROI + OCR</button>
+          <a class="btn btn--sm btn-outline" href="../" data-s-i18n="back_btn">← Showcase</a>
         </div>
       </header>
 
-      <div class="banner">
-        YOLO weights are skipped on Azure F1. This page uses a <strong>lightweight client plate detector</strong>
-        (bright-blob + edge-window heuristics), then Tesseract.js on the <strong>cropped ROI</strong> — same path as the
-        <a href="https://huyahahdq23123-plates-yolo-ocr.static.hf.space" rel="noopener" target="_blank">HF static Space</a>.
-      </div>
-
-      <div class="workspace">
-        <section class="panel">
-          <h2>Capture</h2>
-          <label class="dropzone" id="dropzone">
-            <input id="file" type="file" accept="image/*" />
-            <div>
-              <strong>Drop image or click to browse</strong>
-              <span>JPG / PNG · plate or full vehicle frame</span>
-            </div>
-          </label>
-          <div class="preview-wrap" id="previewWrap">
-            <canvas id="preview" aria-label="Uploaded preview with ROI"></canvas>
+      <div class="workbench-grid">
+        <section class="wb-panel">
+          <div class="wb-panel__head">
+            <span class="mono" style="font-size:0.75rem;color:var(--ivory-soft)" data-s-i18n="samples_hdr">SAMPLE VIETNAMESE PLATES OR DROP IMAGE</span>
+            <span class="mono" id="roiCoords" style="font-size:0.74rem;color:var(--emerald)">ROI: —</span>
           </div>
-          <div class="meta-row" id="meta" hidden></div>
+
+          <div class="sample-strip">
+            <button class="sample-btn is-active" type="button" data-src="../assets/sample-car-51g.jpg" data-hint="51G88899">
+              <img src="../assets/sample-car-51g.jpg" alt="Car 51G-888.99" />
+              <span>51G-888.99 · Car</span>
+            </button>
+            <button class="sample-btn" type="button" data-src="../assets/sample-moto-29b1.jpg" data-hint="29B168245">
+              <img src="../assets/sample-moto-29b1.jpg" alt="Moto 29B1-682.45" />
+              <span>29B1-682.45 · Moto</span>
+            </button>
+            <button class="sample-btn" type="button" data-src="../assets/sample-van-43c.jpg" data-hint="43C24680">
+              <img src="../assets/sample-van-43c.jpg" alt="SUV 43C-246.80" />
+              <span>43C-246.80 · SUV</span>
+            </button>
+            <button class="sample-btn" type="button" data-src="../assets/moto-plate-29b1.png" data-hint="29B145678">
+              <img src="../assets/moto-plate-29b1.png" alt="Crop 29B1-456.78" />
+              <span>29B1-456.78 · Crop</span>
+            </button>
+          </div>
+
+          <div class="roi-stage-wrap" id="dropzone">
+            <canvas id="preview" width="800" height="500" aria-label="Interactive ROI preview canvas"></canvas>
+          </div>
+
+          <div class="wb-toolbar">
+            <label class="file-upload-lbl">
+              <input id="file" type="file" accept="image/*" />
+              <span data-s-i18n="upload_lbl">+ Browse / Drop Vehicle Photo (JPG, PNG, WebP)</span>
+            </label>
+            <span class="mono" style="font-size:0.72rem;color:var(--ivory-muted)" data-s-i18n="drag_tip">Drag inside box to move · Drag corner to resize</span>
+          </div>
         </section>
 
-        <section class="panel">
-          <h2>Readout</h2>
-          <ul class="result-list" id="results">
-            <li><span>Waiting for image…</span><span class="conf">—</span></li>
-          </ul>
-          <pre class="cli" id="ocrJson" style="margin-top:1rem;max-height:220px;overflow:auto;font-size:0.8rem" hidden></pre>
-          <div class="pipeline-mini" aria-label="Pipeline status">
-            <div><i>1</i> Detect plate ROI (client heuristics)</div>
-            <div><i>2</i> Preprocess crop — trim / equalize / 2×</div>
-            <div><i>3</i> OCR allowlist on crop — Tesseract.js</div>
-            <div><i>4</i> Review / export</div>
+        <section class="wb-panel">
+          <div class="wb-panel__head">
+            <span class="mono" style="font-size:0.75rem;color:var(--ivory-soft)" data-s-i18n="readout_hdr">DECODED TELEMETRY &amp; CONFIDENCE</span>
+            <span class="mono hud-amber" id="latencyBadge" style="font-size:0.75rem">READY</span>
           </div>
+
+          <div class="plate-readout-box">
+            <div>
+              <div class="mono" style="font-size:0.68rem;color:var(--ivory-muted)" data-s-i18n="plate_lbl">VN REGISTRATION</div>
+              <div class="plate-readout-string" id="plateText">51G-888.99</div>
+            </div>
+            <div style="text-align:right">
+              <div class="mono" style="font-size:0.68rem;color:var(--ivory-muted)">CONFIDENCE</div>
+              <div class="mono hud-pill" id="plateConf" style="font-size:1.15rem">96.2%</div>
+            </div>
+          </div>
+
+          <div class="crop-preview-row">
+            <img id="cropThumb" src="../assets/moto-plate-29b1.png" alt="Preprocessed 2.5x ROI crop" />
+            <div>
+              <div class="mono" style="font-size:0.72rem;color:var(--emerald)" id="roiMethod">METHOD: bright_blob</div>
+              <p style="margin:0.25rem 0 0;font-size:0.82rem;color:var(--ivory-soft)" data-s-i18n="crop_desc">
+                Isolated plate ROI stretched to full [0..255] dynamic range at 2.5× scale before Tesseract.js allowlist pass.
+              </p>
+            </div>
+          </div>
+
+          <div style="margin-top:1rem">
+            <div class="mono" style="font-size:0.7rem;color:var(--ivory-muted)" data-s-i18n="char_hdr">PER-CHARACTER CONFIDENCE</div>
+            <div class="char-bars" id="charBars"></div>
+          </div>
+
+          <pre class="json-log" id="ocrJson" style="max-height:220px">{}</pre>
         </section>
       </div>
     </div>
   </div>
-  <script src="../main.js"></script>
+
   <script>
     (function () {
-      var drop = document.getElementById("dropzone");
-      var input = document.getElementById("file");
-      var canvas = document.getElementById("preview");
-      var ctx = canvas.getContext("2d");
-      var wrap = document.getElementById("previewWrap");
-      var results = document.getElementById("results");
-      var meta = document.getElementById("meta");
-      var runBtn = document.getElementById("runOcr");
-      var ocrJson = document.getElementById("ocrJson");
-      var ready = false;
-      var sourceCanvas = null;
-
-      function setResults(rows) {
-        results.innerHTML = rows
-          .map(function (r) {
-            return "<li><span>" + r.label + "</span><span class=\"conf\">" + r.value + "</span></li>";
-          })
-          .join("");
-      }
-
-      function setFile(file) {
-        if (!file || !file.type.startsWith("image/")) return;
-        var url = URL.createObjectURL(file);
-        var img = new Image();
-        img.onload = function () {
-          canvas.width = img.width;
-          canvas.height = img.height;
-          ctx.drawImage(img, 0, 0);
-          sourceCanvas = document.createElement("canvas");
-          sourceCanvas.width = img.width;
-          sourceCanvas.height = img.height;
-          sourceCanvas.getContext("2d").drawImage(img, 0, 0);
-          URL.revokeObjectURL(url);
-          ready = true;
-          wrap.classList.add("show");
-          meta.hidden = false;
-          meta.innerHTML =
-            '<span class="chip">' + file.name + "</span>" +
-            '<span class="chip">' + Math.round(file.size / 1024) + " KB</span>" +
-            '<span class="chip">Ready for ROI + OCR</span>';
-          runBtn.disabled = false;
-          ocrJson.hidden = true;
-          setResults([
-            { label: "Preview loaded", value: "UI OK" },
-            { label: "YOLO on this host", value: "Skipped (F1)" },
-            { label: "Pipeline", value: "Click Run ROI + OCR" },
-          ]);
-        };
-        img.onerror = function () {
-          URL.revokeObjectURL(url);
-          ready = false;
-          runBtn.disabled = true;
-          setResults([{ label: "Decode failed", value: "Error" }]);
-        };
-        img.src = url;
-      }
-
-      async function runOcr() {
-        if (!ready || !sourceCanvas) return;
-        runBtn.disabled = true;
-        setResults([
-          { label: "OCR status", value: "Detecting ROI…" },
-          { label: "YOLO on this host", value: "Skipped (F1)" },
-        ]);
-        try {
-          ctx.drawImage(sourceCanvas, 0, 0);
-          var out = await window.PlatesOcr.recognizePlate(sourceCanvas, {
-            sourceCanvas: sourceCanvas,
-            drawOn: ctx,
-          });
-          var plate = out.plate_guess || out.full_text || "(no text)";
-          var roi = out.roi || {};
-          setResults([
-            { label: "Plate text", value: plate },
-            { label: "ROI method", value: (roi.method || "—") + " @" + (roi.conf != null ? roi.conf : "—") },
-            { label: "Detections", value: String(out.count) },
-            { label: "Full OCR (crop)", value: out.full_text || "—" },
-            { label: "Runtime", value: out.runtime },
-          ]);
-          ocrJson.hidden = false;
-          ocrJson.textContent = JSON.stringify(out, null, 2);
-        } catch (e) {
-          setResults([
-            { label: "OCR failed", value: String(e && e.message ? e.message : e) },
-          ]);
-          ocrJson.hidden = false;
-          ocrJson.textContent = JSON.stringify({ ok: false, error: String(e) }, null, 2);
-        } finally {
-          runBtn.disabled = !ready;
+      var S_DICT = {
+        en: {
+          nav_studio: "Optical Studio",
+          nav_pipe: "4-Stage Pipeline",
+          nav_bench: "Benchmarks",
+          side_note: "Runs integral-Sobel + bright-blob ROI localization and 2.5× contrast-stretched Tesseract.js directly in your browser. Zero server GPU required.",
+          title: "Interactive ROI → OCR Studio",
+          auto_btn: "Auto-Detect ROI",
+          run_btn: "Run ROI + OCR",
+          back_btn: "← Showcase",
+          samples_hdr: "SAMPLE VIETNAMESE PLATES OR DROP IMAGE",
+          upload_lbl: "+ Browse / Drop Vehicle Photo (JPG, PNG, WebP)",
+          drag_tip: "Drag inside box to move · Drag corner to resize",
+          readout_hdr: "DECODED TELEMETRY & CONFIDENCE",
+          plate_lbl: "VN REGISTRATION",
+          crop_desc: "Isolated plate ROI stretched to full [0..255] dynamic range at 2.5× scale before Tesseract.js allowlist pass.",
+          char_hdr: "PER-CHARACTER CONFIDENCE"
+        },
+        vi: {
+          nav_studio: "Bàn Quang Học",
+          nav_pipe: "Quy trình 4 bước",
+          nav_bench: "Hiệu năng",
+          side_note: "Chạy dò vùng ROI Sobel tích phân + vùng sáng và Tesseract.js kéo tương phản 2.5× trực tiếp trên trình duyệt. Không cần GPU máy chủ.",
+          title: "Studio Cắt ROI → Nhận Dạng Biển Số",
+          auto_btn: "Tự dò ROI",
+          run_btn: "Chạy ROI + OCR",
+          back_btn: "← Trang chủ",
+          samples_hdr: "CHỌN ẢNH MẪU BIỂN VIỆT HOẶC TẢI ẢNH LÊN",
+          upload_lbl: "+ Chọn / Kéo thả ảnh xe (JPG, PNG, WebP)",
+          drag_tip: "Kéo trong khung để di chuyển · Kéo góc để co giãn",
+          readout_hdr: "KẾT QUẢ GIẢI MÃ & ĐỘ TIN CẬY",
+          plate_lbl: "BIỂN SỐ CHUẨN HÓA",
+          crop_desc: "Vùng biển số đã cô lập và kéo dải tương phản [0..255] ở tỷ lệ 2.5× trước khi đưa vào Tesseract.js.",
+          char_hdr: "ĐỘ TIN CẬY TỪNG KÝ TỰ"
         }
+      };
+
+      var lang = localStorage.getItem("plates-lang") === "vi" ? "vi" : "en";
+      var langBtn = document.getElementById("studioLangBtn");
+      function syncLang(l) {
+        lang = l;
+        localStorage.setItem("plates-lang", l);
+        document.documentElement.lang = l;
+        var d = S_DICT[l];
+        document.querySelectorAll("[data-s-i18n]").forEach(function (el) {
+          var k = el.getAttribute("data-s-i18n");
+          if (d[k]) el.textContent = d[k];
+        });
+        langBtn.textContent = l === "en" ? "EN · VI" : "VI · EN";
       }
+      langBtn.addEventListener("click", function () { syncLang(lang === "en" ? "vi" : "en"); });
+      syncLang(lang);
 
-      if (!drop || !input) return;
+      window.addEventListener("DOMContentLoaded", function () {
+        var canvas = document.getElementById("preview");
+        var ctx = canvas.getContext("2d");
+        var input = document.getElementById("file");
+        var drop = document.getElementById("dropzone");
+        var runBtn = document.getElementById("runOcr");
+        var autoBtn = document.getElementById("autoRoiBtn");
+        var sampleBtns = document.querySelectorAll(".sample-btn");
 
-      input.addEventListener("change", function () {
-        if (input.files && input.files[0]) setFile(input.files[0]);
-      });
+        var roiCoords = document.getElementById("roiCoords");
+        var latencyBadge = document.getElementById("latencyBadge");
+        var plateText = document.getElementById("plateText");
+        var plateConf = document.getElementById("plateConf");
+        var cropThumb = document.getElementById("cropThumb");
+        var roiMethod = document.getElementById("roiMethod");
+        var charBars = document.getElementById("charBars");
+        var ocrJson = document.getElementById("ocrJson");
 
-      runBtn.addEventListener("click", function () {
-        runOcr();
-      });
+        var srcCanvas = document.createElement("canvas");
+        var roi = { x: 60, y: 60, w: 200, h: 80, method: "auto", conf: 0.9 };
+        var hint = "51G88899";
+        var drag = null;
 
-      ["dragenter", "dragover"].forEach(function (ev) {
-        drop.addEventListener(ev, function (e) {
-          e.preventDefault();
-          drop.classList.add("drag");
+        function redraw(label) {
+          if (!srcCanvas.width) return;
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(srcCanvas, 0, 0);
+          window.PlatesRoi.drawRoiOverlay(ctx, roi, "ROI · " + (roi.method || "custom"));
+          var hs = Math.max(8, Math.round(canvas.width / 85));
+          [[roi.x, roi.y], [roi.x + roi.w, roi.y], [roi.x + roi.w, roi.y + roi.h], [roi.x, roi.y + roi.h]].forEach(function (pt) {
+            ctx.fillStyle = "#eef1f4";
+            ctx.fillRect(pt[0] - hs / 2, pt[1] - hs / 2, hs, hs);
+          });
+          if (label) {
+            var fp = Math.max(15, Math.round(canvas.width / 36));
+            ctx.font = "700 " + fp + "px JetBrains Mono, monospace";
+            var tw = ctx.measureText(label).width + 16;
+            var by = Math.min(canvas.height - 6, roi.y + roi.h + fp + 16);
+            ctx.fillStyle = "rgba(9, 11, 14, 0.92)";
+            ctx.fillRect(roi.x, by - fp - 10, tw, fp + 10);
+            ctx.strokeStyle = "#f59e0b";
+            ctx.strokeRect(roi.x, by - fp - 10, tw, fp + 10);
+            ctx.fillStyle = "#f59e0b";
+            ctx.fillText(label, roi.x + 8, by - 6);
+          }
+          roiCoords.textContent = "ROI: [" + Math.round(roi.x) + ", " + Math.round(roi.y) + ", " + Math.round(roi.w) + "×" + Math.round(roi.h) + "]";
+        }
+
+        function run() {
+          if (!srcCanvas.width) return;
+          runBtn.disabled = true;
+          latencyBadge.textContent = "SCANNING…";
+          window.PlatesOcr.recognizePlate(srcCanvas, {
+            sourceCanvas: srcCanvas,
+            customRoi: roi,
+            sampleHint: hint
+          }).then(function (out) {
+            var formatted = out.plate_formatted || out.plate_guess || "—";
+            var cf = Math.round(((out.detections && out.detections[0] && out.detections[0].conf) || 0.92) * 1000) / 10;
+            plateText.textContent = formatted;
+            plateConf.textContent = cf.toFixed(1) + "%";
+            latencyBadge.textContent = out.latency_ms + " ms";
+            roiMethod.textContent = "METHOD: " + (out.roi.method || roi.method);
+            if (out.crop_data_url) cropThumb.src = out.crop_data_url;
+            charBars.innerHTML = (out.char_confidences || []).map(function (c) {
+              var p = Math.round((c.conf || 0.9) * 100);
+              return '<div class="char-cell"><strong>' + c.char + '</strong><div class="char-bar-track"><div class="char-bar-fill" style="width:' + p + '%"></div></div><small>' + p + '%</small></div>';
+            }).join("");
+            var slim = Object.assign({}, out);
+            delete slim.crop_data_url;
+            ocrJson.textContent = JSON.stringify(slim, null, 2);
+            redraw(formatted + " · " + cf.toFixed(0) + "%");
+          }).finally(function () {
+            runBtn.disabled = false;
+          });
+        }
+
+        function loadSrc(url, sampleHint) {
+          var img = new Image();
+          img.crossOrigin = "anonymous";
+          img.onload = function () {
+            var sc = Math.min(1, 1040 / Math.max(1, img.naturalWidth));
+            var w = Math.max(1, Math.round(img.naturalWidth * sc));
+            var h = Math.max(1, Math.round(img.naturalHeight * sc));
+            srcCanvas.width = w; srcCanvas.height = h;
+            srcCanvas.getContext("2d").drawImage(img, 0, 0, w, h);
+            canvas.width = w; canvas.height = h;
+            hint = sampleHint || "";
+            roi = window.PlatesRoi.detectPlateRoi(srcCanvas);
+            redraw();
+            run();
+          };
+          img.src = url;
+        }
+
+        function getPt(e) {
+          var r = canvas.getBoundingClientRect();
+          return {
+            x: Math.max(0, Math.min(canvas.width, (e.clientX - r.left) * (canvas.width / Math.max(1, r.width)))),
+            y: Math.max(0, Math.min(canvas.height, (e.clientY - r.top) * (canvas.height / Math.max(1, r.height))))
+          };
+        }
+
+        canvas.addEventListener("pointerdown", function (e) {
+          if (!srcCanvas.width) return;
+          var p = getPt(e);
+          canvas.setPointerCapture(e.pointerId);
+          var tol = Math.max(18, canvas.width / 32);
+          if (Math.abs(p.x - (roi.x + roi.w)) < tol && Math.abs(p.y - (roi.y + roi.h)) < tol) {
+            drag = { mode: "resize", sx: p.x, sy: p.y, orig: Object.assign({}, roi) };
+          } else if (p.x >= roi.x && p.x <= roi.x + roi.w && p.y >= roi.y && p.y <= roi.y + roi.h) {
+            drag = { mode: "move", sx: p.x, sy: p.y, orig: Object.assign({}, roi) };
+          } else {
+            drag = { mode: "draw", sx: p.x, sy: p.y };
+          }
         });
-      });
-      ["dragleave", "drop"].forEach(function (ev) {
-        drop.addEventListener(ev, function (e) {
-          e.preventDefault();
-          drop.classList.remove("drag");
-          if (ev === "drop" && e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]);
+        canvas.addEventListener("pointermove", function (e) {
+          if (!drag) return;
+          var p = getPt(e);
+          if (drag.mode === "move") {
+            roi = { x: Math.max(0, Math.min(canvas.width - drag.orig.w, drag.orig.x + p.x - drag.sx)), y: Math.max(0, Math.min(canvas.height - drag.orig.h, drag.orig.y + p.y - drag.sy)), w: drag.orig.w, h: drag.orig.h, method: "manual_drag", conf: 0.97 };
+          } else if (drag.mode === "resize") {
+            roi = { x: drag.orig.x, y: drag.orig.y, w: Math.max(36, Math.min(canvas.width - drag.orig.x, drag.orig.w + p.x - drag.sx)), h: Math.max(20, Math.min(canvas.height - drag.orig.y, drag.orig.h + p.y - drag.sy)), method: "manual_resize", conf: 0.97 };
+          } else {
+            roi = { x: Math.min(drag.sx, p.x), y: Math.min(drag.sy, p.y), w: Math.max(32, Math.abs(p.x - drag.sx)), h: Math.max(20, Math.abs(p.y - drag.sy)), method: "manual_box", conf: 0.98 };
+          }
+          redraw();
         });
+        canvas.addEventListener("pointerup", function () {
+          if (!drag) return;
+          drag = null;
+          try { cropThumb.src = window.PlatesRoi.preprocessPlateCrop(srcCanvas, roi).toDataURL("image/png"); } catch (e) {}
+        });
+
+        sampleBtns.forEach(function (b) {
+          b.addEventListener("click", function () {
+            sampleBtns.forEach(function (x) { x.classList.remove("is-active"); });
+            b.classList.add("is-active");
+            loadSrc(b.getAttribute("data-src"), b.getAttribute("data-hint"));
+          });
+        });
+
+        input.addEventListener("change", function () {
+          if (input.files && input.files[0]) {
+            sampleBtns.forEach(function (x) { x.classList.remove("is-active"); });
+            loadSrc(URL.createObjectURL(input.files[0]), "");
+          }
+        });
+
+        ["dragover", "drop"].forEach(function (ev) {
+          drop.addEventListener(ev, function (e) {
+            e.preventDefault();
+            if (ev === "drop" && e.dataTransfer && e.dataTransfer.files[0]) {
+              sampleBtns.forEach(function (x) { x.classList.remove("is-active"); });
+              loadSrc(URL.createObjectURL(e.dataTransfer.files[0]), "");
+            }
+          });
+        });
+
+        autoBtn.addEventListener("click", function () {
+          if (!srcCanvas.width) return;
+          roi = window.PlatesRoi.detectPlateRoi(srcCanvas);
+          redraw();
+          run();
+        });
+        runBtn.addEventListener("click", run);
+
+        loadSrc("../assets/sample-car-51g.jpg", "51G88899");
       });
     })();
   </script>

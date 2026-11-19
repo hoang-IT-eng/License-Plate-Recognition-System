@@ -79,6 +79,17 @@ a { color: inherit; }
 }
 .veil__tag { font-size: 11px; letter-spacing: 0.22em; color: var(--paper-faint); }
 
+/* ── THE SCAN hosts (one canvas, three homes) ────────────────────── */
+/* The particle canvas is re-parented between the veil, the hero media
+   and the closing host by hero3d.js — hosts are passive frames. */
+.scan-host { pointer-events: none; }
+.veil__host { position: absolute; inset: 0; }
+.veil__inner { position: relative; z-index: 1; }
+.scan-host .hero__canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.closing { position: relative; }
+.closing__host { position: absolute; inset: 0; z-index: 0; overflow: hidden; }
+.closing > *:not(.closing__host) { position: relative; z-index: 1; }
+
 /* ── Reveal on enter (one IntersectionObserver, main.js) ─────────── */
 /* Hidden state exists only under html.fx — set by JS when motion is on.
    No-JS, reduced motion and automation all render fully visible. */

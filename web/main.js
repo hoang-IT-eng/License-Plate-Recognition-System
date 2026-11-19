@@ -247,42 +247,124 @@
     return t * t * (3 - 2 * t);
   }
 
-  /* ───────────────── Hero 3D (lazy) ───────────────── */
+  /* ───────────────── THE SCAN — one engine, three hosts ─────────────────
+     hero3d.js is a GPU particle point-cloud: a LiDAR-style scan of the
+     checkpoint. ONE canvas is re-parented between the veil (particles
+     converge into the plate outline while the page loads), the hero
+     (scroll morphs dust → scene; the plate locks on) and the closing
+     section (outline + the glyphs of 43C-246.80). Capability gates per
+     the cinematic-web skill: reduced motion / automation, low-end
+     hardware, saveData and software WebGL all stay on the graded
+     still. QA flags: ?scan=off forces the still, ?scan=on forces the
+     engine (screenshot passes, worst-case measuring). */
   var heroCanvas = document.getElementById("heroCanvas");
   var heroStill = document.getElementById("heroStill");
-  var threeRequested = false;
-  function loadThree() {
-    if (threeRequested) return;
-    threeRequested = true;
+  var heroMedia = heroCanvas ? heroCanvas.parentNode : null;
+  var veilHost = document.getElementById("veilHost");
+  var closingHost = document.getElementById("closingHost");
+  var scanParam = null;
+  try { scanParam = new URLSearchParams(global.location.search).get("scan"); } catch (e) { /* ignore */ }
+  var SCAN_ON = scanParam === "on";
+  var lowEnd = (navigator.hardwareConcurrency || 4) <= 2 || (navigator.deviceMemory && navigator.deviceMemory <= 2);
+  var saveData = !!(navigator.connection && navigator.connection.saveData);
+  var coarsePointer = !!(global.matchMedia && global.matchMedia("(pointer: coarse)").matches);
+  var engineOK = !!heroCanvas && scanParam !== "off" && (SCAN_ON || (!MOTION_OFF && !lowEnd && !saveData));
+  var engine = { requested: false, ready: false, dead: false };
+  var heroVisible = true;
+  var closingVisible = false;
+  var veilActive = false;
+
+  function veilIsArmed() {
+    var v = document.getElementById("veil");
+    return !!(v && !v.hidden);
+  }
+  function engineUpdateRun() {
+    if (!engine.ready || engine.dead || !global.PlatesHero3D) return;
+    if (veilActive || heroVisible || closingVisible) global.PlatesHero3D.start();
+    else global.PlatesHero3D.stop();
+  }
+  function engineParted() {
+    veilActive = false;
+    if (engine.ready && !engine.dead && global.PlatesHero3D) {
+      global.PlatesHero3D.setMode("hero");
+    }
+    engineUpdateRun();
+  }
+  function loadEngine() {
+    if (engine.requested || !engineOK) return;
+    engine.requested = true;
     var s = document.createElement("script");
     s.src = "./assets/vendor/three.min.js";
     s.onload = function () {
       var h = document.createElement("script");
       h.src = "./hero3d.js";
       h.onload = function () {
-        if (global.PlatesHero3D && global.PlatesHero3D.init(heroCanvas)) {
-          heroCanvas.classList.add("is-live");
-          heroVisible && global.PlatesHero3D.start();
-        }
+        if (!global.PlatesHero3D) { engine.dead = true; return; }
+        var ok = global.PlatesHero3D.init(heroCanvas, {
+          count: coarsePointer ? 12000 : 48000,
+          coarse: coarsePointer,
+          force: SCAN_ON
+        });
+        if (!ok) { engine.dead = true; return; }
+        engine.ready = true;
+        global.PlatesHero3D.setHosts({ veil: veilHost, hero: heroMedia, closing: closingHost });
+        global.PlatesHero3D.setMode(veilActive ? "veil" : "hero");
+        engineUpdateRun();
       };
+      h.onerror = function () { engine.dead = true; };
       document.head.appendChild(h);
     };
+    s.onerror = function () { engine.dead = true; };
     document.head.appendChild(s);
   }
-  var heroVisible = true;
-  var lowEnd = (navigator.hardwareConcurrency || 4) <= 2 || (navigator.deviceMemory && navigator.deviceMemory <= 2);
-  if (heroCanvas && !MOTION_OFF && !lowEnd && "IntersectionObserver" in global) {
+  global.addEventListener("plates-hero-fallback", function () { engine.dead = true; });
+  /* QA hooks for screenshot passes — inert in normal use. */
+  global.__platesSetProgress = function (p) {
+    if (global.PlatesHero3D) global.PlatesHero3D.setProgress(p);
+  };
+  global.__platesSetMode = function (m) {
+    if (global.PlatesHero3D) global.PlatesHero3D.setMode(m);
+  };
+  global.__platesState = function () {
+    if (!global.PlatesHero3D) return null;
+    return {
+      ready: global.PlatesHero3D.isReady(),
+      mode: global.PlatesHero3D.getMode(),
+      progress: global.PlatesHero3D.getProgressSmooth(),
+      plate: global.PlatesHero3D.getPlateMix(),
+      canvasParent: heroCanvas.parentNode ? (heroCanvas.parentNode.id || heroCanvas.parentNode.className) : null,
+      live: heroCanvas.classList.contains("is-live")
+    };
+  };
+
+  if (engineOK && "IntersectionObserver" in global) {
     new IntersectionObserver(function (entries) {
       entries.forEach(function (en) {
         heroVisible = en.isIntersecting;
-        if (en.isIntersecting) {
-          loadThree();
-          if (global.PlatesHero3D) global.PlatesHero3D.start();
-        } else if (global.PlatesHero3D) {
-          global.PlatesHero3D.stop();
-        }
+        if (en.isIntersecting) loadEngine();
+        engineUpdateRun();
       });
     }, { threshold: 0.02 }).observe(document.getElementById("top"));
+
+    var closingSection = document.getElementById("closing");
+    if (closingSection) {
+      new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+          closingVisible = en.isIntersecting;
+          if (engine.ready && !engine.dead && global.PlatesHero3D) {
+            if (en.isIntersecting) global.PlatesHero3D.setMode("closing");
+            else if (global.PlatesHero3D.getMode() === "closing") global.PlatesHero3D.setMode("hero");
+          }
+          engineUpdateRun();
+        });
+      }, { threshold: 0.12 }).observe(closingSection);
+    }
+  }
+  /* Veil armed → the engine is wanted immediately: the converge plays
+     behind the wordmark while fonts + the hero frame load. */
+  if (engineOK && veilIsArmed()) {
+    veilActive = true;
+    loadEngine();
   }
 
   /* ───────────────── Headline intro + page veil ───────────────── */
@@ -343,8 +425,15 @@
 
   var veilEl = document.getElementById("veil");
   var veilParted = false;
+  var veilT0 = Date.now();
   function partVeil() {
     if (veilParted) return;
+    /* Give THE SCAN a beat to converge behind the wordmark before the
+       veil parts (the inline 2.5 s watchdog still caps the wait). */
+    if (veilEl && !veilEl.hidden && Date.now() - veilT0 < 1000) {
+      setTimeout(partVeil, 1000 - (Date.now() - veilT0));
+      return;
+    }
     veilParted = true;
     if (veilEl && veilEl.parentNode) {
       if (global.__veilWatchdog) { clearTimeout(global.__veilWatchdog); global.__veilWatchdog = null; }
@@ -353,6 +442,7 @@
         if (veilEl.parentNode) veilEl.parentNode.removeChild(veilEl);
       }, 800);
     }
+    engineParted(); /* the canvas re-parents into the hero as the veil lifts */
     playIntro();
   }
   if (MOTION_OFF || !veilEl || veilEl.hidden) {

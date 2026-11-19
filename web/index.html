@@ -18,6 +18,10 @@
      simply there). Parts as soon as fonts + the hero frame are ready;
      the inline watchdog parts it at 2.5 s no matter what. -->
 <div class="veil" id="veil" hidden aria-hidden="true">
+  <!-- THE SCAN lives here first: the particle canvas converges from
+       dust into the plate outline behind the wordmark while the page
+       loads, then re-parents into the hero as the veil parts. -->
+  <div class="scan-host veil__host" id="veilHost" aria-hidden="true"></div>
   <div class="veil__inner">
     <span class="veil__mark">PLATES<span class="wordmark__dot">.</span></span>
     <span class="veil__line"><span class="veil__scan"></span></span>
@@ -333,6 +337,10 @@
 
   <!-- ══════════ 7 · CLOSING ══════════ -->
   <section class="closing" id="closing" aria-labelledby="closingTitle">
+    <!-- The same particle canvas re-parents here on approach: the
+         cloud settles into the plate outline + 43C-246.80 glyphs
+         behind the closing words. -->
+    <div class="scan-host closing__host" id="closingHost" aria-hidden="true"></div>
     <h2 class="closing__title" id="closingTitle" data-reveal>
       <span data-i18n="close_l1">Built in the open.</span>
       <span class="closing__title--accent" data-i18n="close_l2">Read the code.</span>

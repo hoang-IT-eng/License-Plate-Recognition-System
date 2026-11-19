@@ -9,8 +9,30 @@
   "use strict";
 
   var REDUCED = global.matchMedia && global.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  if (REDUCED) document.documentElement.classList.add("reduced");
+  /* Unified motion guard (cinematic-web skill): reduced motion OR
+     automation. Every effect — Lenis, pins, reveals, 3D, veil, cursor,
+     magnetic — checks this; when it is on, the page renders complete,
+     stacked and readable. */
+  function motionDisabled() {
+    return REDUCED || !!(global.navigator && global.navigator.webdriver);
+  }
+  var MOTION_OFF = motionDisabled();
+  if (MOTION_OFF) document.documentElement.classList.add("reduced");
+  else document.documentElement.classList.add("fx");
   var FINE_POINTER = global.matchMedia && global.matchMedia("(pointer: fine)").matches;
+
+  function afterIdle(fn) {
+    if ("requestIdleCallback" in global) {
+      global.requestIdleCallback(function () { fn(); }, { timeout: 1400 });
+    } else {
+      global.setTimeout(fn, 80);
+    }
+  }
+
+  /* Hoisted: the static path calls renderFlaps(1) before the split-flap
+     section below would assign these — they must exist from the start. */
+  var GLYPHS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  var flapState = { done: false };
 
   /* ───────────────────────── i18n ───────────────────────── */
   var I18N = {
@@ -79,7 +101,8 @@
       close_copy: "Every step on this page maps to a function in the repository — no staged numbers, no borrowed benchmarks. If it is claimed here, it is in the code.",
       close_repo: "GitHub repository", close_app: "Open the live app",
       close_index: "← INDEX — MORE WORK BY TRẦN HUY HOÀNG",
-      foot_note: "SAMPLE PHOTOS FROM THE PROJECT REPOSITORY"
+      foot_note: "SAMPLE PHOTOS FROM THE PROJECT REPOSITORY",
+      cursor_drop: "DROP IT", cursor_run: "RUN", cursor_open: "OPEN"
     },
     vi: {
       skip: "Bỏ qua tới nội dung",
@@ -146,7 +169,8 @@
       close_copy: "Mỗi bước trên trang này đều ánh xạ tới một hàm trong repository — không số liệu dàn dựng, không benchmark vay mượn. Điều gì được khẳng định ở đây đều có trong code.",
       close_repo: "Kho GitHub", close_app: "Mở ứng dụng trực tiếp",
       close_index: "← MỤC LỤC — THÊM SẢN PHẨM CỦA TRẦN HUY HOÀNG",
-      foot_note: "ẢNH MẪU TỪ REPOSITORY CỦA DỰ ÁN"
+      foot_note: "ẢNH MẪU TỪ REPOSITORY CỦA DỰ ÁN",
+      cursor_drop: "THẢ VÀO", cursor_run: "CHẠY", cursor_open: "MỞ"
     }
   };
 
@@ -169,6 +193,7 @@
       el.classList.toggle("is-on", el.getAttribute("data-lang-opt") === lang);
     });
     try { localStorage.setItem("plates-lang", lang); } catch (e) { /* ignore */ }
+    try { global.dispatchEvent(new Event("plates-lang")); } catch (e) { /* ignore */ }
   }
   global.PlatesI18N = {
     t: function (key) { return (I18N[lang] && I18N[lang][key]) || I18N.en[key] || key; },
@@ -178,22 +203,32 @@
   if (langToggle) {
     langToggle.addEventListener("click", function () {
       applyLang(lang === "en" ? "vi" : "en");
+      splitHeroTitle(); /* applyLang rewrites the line text — rebuild the masks */
     });
   }
   applyLang(lang);
 
   /* ───────────────── Smooth scroll + GSAP ───────────────── */
+  /* ONE Lenis on GSAP's ticker (skill §1), started in an idle slot so the
+     first ScrollTrigger measure is not in the boot task — native scroll
+     until then. */
   var hasGsap = typeof global.gsap !== "undefined" && typeof global.ScrollTrigger !== "undefined";
   var lenis = null;
-  if (!REDUCED && typeof global.Lenis !== "undefined") {
-    lenis = new global.Lenis({ duration: 1.15, smoothWheel: true });
-    if (hasGsap) {
-      lenis.on("scroll", global.ScrollTrigger.update);
-      global.gsap.ticker.add(function (time) { lenis.raf(time * 1000); });
-      global.gsap.ticker.lagSmoothing(0);
-    } else {
-      (function raf(time) { lenis.raf(time); requestAnimationFrame(raf); })(0);
-    }
+  if (!MOTION_OFF && typeof global.Lenis !== "undefined") {
+    afterIdle(function () {
+      lenis = new global.Lenis({
+        duration: 1.15,
+        easing: function (t) { return Math.min(1, 1.001 - Math.pow(2, -10 * t)); },
+        smoothWheel: true
+      });
+      if (hasGsap) {
+        lenis.on("scroll", global.ScrollTrigger.update);
+        global.gsap.ticker.add(function (time) { lenis.raf(time * 1000); });
+        global.gsap.ticker.lagSmoothing(0);
+      } else {
+        (function raf(time) { lenis.raf(time); requestAnimationFrame(raf); })(0);
+      }
+    });
   }
   document.querySelectorAll('a[href^="#"]').forEach(function (a) {
     a.addEventListener("click", function (e) {
@@ -203,7 +238,7 @@
       if (!target) return;
       e.preventDefault();
       if (lenis) lenis.scrollTo(target, { offset: 0 });
-      else target.scrollIntoView({ behavior: REDUCED ? "auto" : "smooth" });
+      else target.scrollIntoView({ behavior: MOTION_OFF ? "auto" : "smooth" });
     });
   });
 
@@ -236,7 +271,7 @@
   }
   var heroVisible = true;
   var lowEnd = (navigator.hardwareConcurrency || 4) <= 2 || (navigator.deviceMemory && navigator.deviceMemory <= 2);
-  if (heroCanvas && !REDUCED && !lowEnd && "IntersectionObserver" in global) {
+  if (heroCanvas && !MOTION_OFF && !lowEnd && "IntersectionObserver" in global) {
     new IntersectionObserver(function (entries) {
       entries.forEach(function (en) {
         heroVisible = en.isIntersecting;
@@ -250,8 +285,93 @@
     }, { threshold: 0.02 }).observe(document.getElementById("top"));
   }
 
+  /* ───────────────── Headline intro + page veil ───────────────── */
+  /* Skill §4: split the hero headline into masked word spans; initial
+     states are set through GSAP (never CSS), so no-JS and the static
+     path show the plain text. The veil parts as soon as fonts + the
+     hero frame are ready, and the intro plays behind its parting edge. */
+  var heroTitle = document.querySelector(".hero__title");
+  var introPlayed = false;
+  var introDone = false;
+  function splitHeroTitle() {
+    if (!heroTitle) return;
+    heroTitle.querySelectorAll(".hero__line").forEach(function (line) {
+      var text = line.textContent.replace(/\s+/g, " ").trim();
+      if (!text) return;
+      line.textContent = "";
+      var words = text.split(" ");
+      words.forEach(function (word, i) {
+        var mask = document.createElement("span");
+        mask.className = "hero__mask";
+        var w = document.createElement("span");
+        w.className = "hero__word";
+        w.textContent = word;
+        mask.appendChild(w);
+        line.appendChild(mask);
+        if (i < words.length - 1) line.appendChild(document.createTextNode(" "));
+      });
+    });
+    if (hasGsap && !MOTION_OFF) {
+      global.gsap.set(heroTitle.querySelectorAll(".hero__word"), { yPercent: introPlayed ? 0 : 110 });
+      if (introPlayed) heroTitle.classList.add("is-revealed");
+    }
+  }
+  function playIntro() {
+    if (introPlayed) return;
+    introPlayed = true;
+    if (!heroTitle) return;
+    if (hasGsap && !MOTION_OFF) {
+      global.gsap.to(heroTitle.querySelectorAll(".hero__word"), {
+        yPercent: 0, duration: 1.05, ease: "power4.out", stagger: 0.07, delay: 0.05,
+        onComplete: function () {
+          introDone = true;
+          heroTitle.classList.add("is-revealed");
+        }
+      });
+      /* Safety: an interrupted tween must never leave the headline masked. */
+      setTimeout(function () {
+        if (!introDone) {
+          global.gsap.set(heroTitle.querySelectorAll(".hero__word"), { yPercent: 0 });
+          heroTitle.classList.add("is-revealed");
+        }
+      }, 2600);
+    } else {
+      heroTitle.classList.add("is-revealed");
+    }
+  }
+  splitHeroTitle();
+
+  var veilEl = document.getElementById("veil");
+  var veilParted = false;
+  function partVeil() {
+    if (veilParted) return;
+    veilParted = true;
+    if (veilEl && veilEl.parentNode) {
+      if (global.__veilWatchdog) { clearTimeout(global.__veilWatchdog); global.__veilWatchdog = null; }
+      veilEl.classList.add("is-parted");
+      setTimeout(function () {
+        if (veilEl.parentNode) veilEl.parentNode.removeChild(veilEl);
+      }, 800);
+    }
+    playIntro();
+  }
+  if (MOTION_OFF || !veilEl || veilEl.hidden) {
+    /* Static path (or veil never armed): no veil, headline simply shown. */
+    playIntro();
+  } else {
+    var heroFrameReady = new Promise(function (resolve) {
+      if (!heroStill || heroStill.complete) { resolve(); return; }
+      heroStill.addEventListener("load", resolve);
+      heroStill.addEventListener("error", resolve);
+      setTimeout(resolve, 1800);
+    });
+    var fontsReady = (document.fonts && document.fonts.ready) ? document.fonts.ready : Promise.resolve();
+    Promise.all([fontsReady, heroFrameReady]).then(partVeil);
+    setTimeout(partVeil, 2300); /* belt & braces, below the 2.5 s watchdog */
+  }
+
   /* ───────────────── Scroll story ───────────────── */
-  if (hasGsap && !REDUCED) {
+  if (hasGsap && !MOTION_OFF) {
     var gsap = global.gsap;
     gsap.registerPlugin(global.ScrollTrigger);
     var isMobile = global.matchMedia("(max-width: 760px)").matches;
@@ -311,15 +431,7 @@
     }).to({}, { duration: 1, onUpdate: function () { renderCapture(this.progress()); } });
     renderCapture(0);
 
-    /* Clean — pinned morph */
-    buildClean(function (render) {
-      gsap.timeline({
-        scrollTrigger: {
-          trigger: "#clean", start: "top top", end: "+=160%", scrub: 0.5,
-          pin: isMobile ? false : ".clean__pin", anticipatePin: 1
-        }
-      }).to({}, { duration: 1, onUpdate: function () { render(this.progress()); } });
-    });
+    /* Clean — pinned morph: built on approach, see startClean() below. */
 
     /* Read — resolve on approach */
     gsap.timeline({
@@ -327,12 +439,65 @@
     }).to({}, { duration: 1, onUpdate: function () { renderFlaps(this.progress()); } });
   } else {
     /* Static path: everything in its final, readable state */
-    buildClean(function (render) { render(1); });
     renderFlaps(1);
     var ro = document.getElementById("captureReadout");
     if (ro) ro.style.opacity = "1";
     var bb = document.getElementById("captureBbox");
     if (bb) bb.style.opacity = "1";
+  }
+
+  /* ───────────────── Clean canvas — built on approach ─────────────────
+     The morph needs the 839 KB sample photo; per the performance budget
+     it (and its pin) is only built when the chapter approaches, instead
+     of in the boot task. Static path renders the final frame directly. */
+  var cleanStarted = false;
+  function startClean() {
+    if (cleanStarted) return;
+    cleanStarted = true;
+    buildClean(function (render) {
+      if (hasGsap && !MOTION_OFF) {
+        gsap.timeline({
+          scrollTrigger: {
+            trigger: "#clean", start: "top top", end: "+=160%", scrub: 0.5,
+            pin: isMobile ? false : ".clean__pin", anticipatePin: 1
+          }
+        }).to({}, { duration: 1, onUpdate: function () { render(this.progress()); } });
+        global.ScrollTrigger.refresh();
+      } else {
+        render(1);
+      }
+    });
+  }
+  var cleanSection = document.getElementById("clean");
+  if (cleanSection && !MOTION_OFF && "IntersectionObserver" in global) {
+    var cleanIO = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        if (en.isIntersecting) { startClean(); cleanIO.disconnect(); }
+      });
+    }, { rootMargin: "120% 0px" });
+    cleanIO.observe(cleanSection);
+  } else {
+    startClean();
+  }
+
+  /* ───────────────── Reveal on enter — ONE observer ─────────────────
+     Simple reveals only (skill §4); pins and scrubs stay on
+     ScrollTrigger. Under the static path everything is already visible. */
+  var revealEls = document.querySelectorAll("[data-reveal]");
+  if (revealEls.length) {
+    if (MOTION_OFF || !("IntersectionObserver" in global)) {
+      revealEls.forEach(function (el) { el.classList.add("is-in"); });
+    } else {
+      var revealIO = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+          if (en.isIntersecting) {
+            en.target.classList.add("is-in");
+            revealIO.unobserve(en.target);
+          }
+        });
+      }, { threshold: 0.12, rootMargin: "0px 0px -6% 0px" });
+      revealEls.forEach(function (el) { revealIO.observe(el); });
+    }
   }
 
   /* ───────────────── Clean canvas engine ───────────────── */
@@ -435,8 +600,7 @@
   }
 
   /* ───────────────── Split-flap resolve ───────────────── */
-  var GLYPHS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-  var flapState = { done: false };
+  /* (GLYPHS + flapState are initialised at the top of this file.) */
   function renderFlaps(p) {
     var board = document.getElementById("flapboard");
     if (!board) return;
@@ -444,7 +608,9 @@
     flaps.forEach(function (flap, i) {
       var span = flap.querySelector("span");
       var final = flap.getAttribute("data-final");
-      var local = Math.max(0, Math.min(1, (p * 1.35) - i * 0.055));
+      /* At p = 1 the board is resolved — every flap settled, no stragglers
+         left on a random glyph by the stagger math. */
+      var local = p >= 1 ? 1 : Math.max(0, Math.min(1, (p * 1.35) - i * 0.055));
       if (local >= 1) {
         span.textContent = final;
         flap.classList.add("is-settled");
@@ -464,7 +630,7 @@
       entries.forEach(function (en) {
         if (en.isIntersecting) {
           var idx = Array.prototype.indexOf.call(nodes, en.target);
-          setTimeout(function () { en.target.classList.add("is-lit"); }, REDUCED ? 0 : idx * 110);
+          setTimeout(function () { en.target.classList.add("is-lit"); }, MOTION_OFF ? 0 : idx * 110);
           pipeIO.unobserve(en.target);
         }
       });
@@ -496,8 +662,9 @@
   }
 
   /* ───────────────── Cursor + magnetic (fine pointers) ───────────────── */
-  if (FINE_POINTER && !REDUCED) {
+  if (FINE_POINTER && !MOTION_OFF) {
     var cursor = document.getElementById("cursor");
+    var cursorLabel = document.getElementById("cursorLabel");
     var cx = -100, cy = -100, tx = -100, ty = -100;
     document.addEventListener("mousemove", function (e) {
       tx = e.clientX; ty = e.clientY;
@@ -513,12 +680,35 @@
       el.addEventListener("mouseenter", function () { cursor && cursor.classList.add("is-hover"); });
       el.addEventListener("mouseleave", function () { cursor && cursor.classList.remove("is-hover"); });
     });
+    /* Contextual labels: elements carry data-cursor="<i18n key>". */
+    var cursorKey = null;
+    function setCursorLabel(key) {
+      if (key === cursorKey) return;
+      cursorKey = key;
+      if (!cursor || !cursorLabel) return;
+      if (key) {
+        cursorLabel.textContent = global.PlatesI18N.t(key);
+        cursor.classList.add("has-label");
+      } else {
+        cursor.classList.remove("has-label");
+      }
+    }
+    document.addEventListener("mouseover", function (e) {
+      var t = (e.target && e.target.closest) ? e.target.closest("[data-cursor]") : null;
+      setCursorLabel(t ? t.getAttribute("data-cursor") : null);
+    });
+    global.addEventListener("plates-lang", function () {
+      if (cursorKey && cursorLabel) cursorLabel.textContent = global.PlatesI18N.t(cursorKey);
+    });
+    /* Magnetic pull, hard-limited to ±6 px (skill step 8). */
     document.querySelectorAll(".magnetic").forEach(function (el) {
       el.addEventListener("mousemove", function (e) {
         var r = el.getBoundingClientRect();
         var dx = (e.clientX - r.left - r.width / 2) / r.width;
         var dy = (e.clientY - r.top - r.height / 2) / r.height;
-        el.style.transform = "translate(" + (dx * 7) + "px," + (dy * 5) + "px)";
+        var mx = Math.max(-6, Math.min(6, dx * 12));
+        var my = Math.max(-6, Math.min(6, dy * 12));
+        el.style.transform = "translate(" + mx + "px," + my + "px)";
       });
       el.addEventListener("mouseleave", function () { el.style.transform = ""; });
     });

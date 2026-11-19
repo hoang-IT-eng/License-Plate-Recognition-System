@@ -9,7 +9,11 @@
   "use strict";
 
   var state = {
-    ready: false, running: false, progress: 0,
+    ready: false, running: false,
+    /* Hero-descent pattern (skill §4): scroll writes the TARGET into
+       state.progress; the render loop eases progressSmooth toward it
+       and poses the camera from the smoothed value each frame. */
+    progress: 0, progressSmooth: 0,
     renderer: null, scene: null, camera: null, car: null,
     lampLight: null, headL: null, headR: null, raf: 0, clock: null
   };
@@ -261,13 +265,12 @@
       if (document.hidden) { stop(); } else if (state._wantRun) { start(); }
     });
 
-    applyProgress();
+    applyProgress(0);
     return true;
   }
 
-  function applyProgress() {
+  function applyProgress(p) {
     if (!state.ready) return;
-    var p = state.progress;
     var z = 9.6 - p * 3.6;                    // dolly 9.6 → 6.0
     if (state.camera.aspect < 1) z *= 1.28;   // portrait: pull back so the car fits
     var y = 1.75 - p * 0.42;                  // sink toward plate height
@@ -277,7 +280,15 @@
 
   function frame() {
     if (!state.running) return;
-    var t = state.clock.getElapsedTime();
+    var dt = Math.min(state.clock.getDelta(), 0.05);
+    var t = state.clock.elapsedTime;
+    /* Crane-move easing toward the scroll target. */
+    var k = 1 - Math.exp(-dt * 5);
+    state.progressSmooth += (state.progress - state.progressSmooth) * k;
+    if (Math.abs(state.progress - state.progressSmooth) < 0.0005) {
+      state.progressSmooth = state.progress;
+    }
+    applyProgress(state.progressSmooth);
     if (state.car) {
       state.car.position.y = Math.sin(t * 0.85) * 0.008;
       var flicker = 2.05 + Math.sin(t * 13.7) * 0.04 + Math.sin(t * 3.1) * 0.04;
@@ -291,7 +302,7 @@
     state._wantRun = true;
     if (!state.ready || state.running || document.hidden) return;
     state.running = true;
-    state.clock.getElapsedTime();
+    state.clock.getDelta(); /* flush any stale delta accumulated while paused */
     frame();
   }
   function stop() {
@@ -301,7 +312,8 @@
 
   global.PlatesHero3D = {
     init: init,
-    setProgress: function (p) { state.progress = Math.max(0, Math.min(1, p)); applyProgress(); },
+    /* Writes the target only — the render loop reads and eases it. */
+    setProgress: function (p) { state.progress = Math.max(0, Math.min(1, p)); },
     start: start,
     stop: function () { state._wantRun = false; stop(); },
     isReady: function () { return state.ready; }

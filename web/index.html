@@ -7,11 +7,36 @@
 <meta name="description" content="A Vietnamese license-plate recognition pipeline told in one night shot: YOLOv8 finds the plate, EasyOCR reads it, a format check verifies it. Live browser demo included."/>
 <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml"/>
 <link rel="stylesheet" href="./assets/fonts/fonts.css"/>
+<link rel="preload" as="font" type="font/woff2" href="./assets/fonts/bricolage-grotesque-300-800-latin.woff2" crossorigin/>
 <link rel="stylesheet" href="./styles.css"/>
 <link rel="preload" as="image" href="./assets/img/night-gate-768.webp" media="(max-width: 760px)"/>
 <link rel="preload" as="image" href="./assets/img/night-gate-1376.webp" media="(min-width: 761px)"/>
 </head>
 <body>
+<!-- Page veil: armed by the inline script below (JS only — with JS off, or
+     under reduced motion / automation, it stays hidden and the page is
+     simply there). Parts as soon as fonts + the hero frame are ready;
+     the inline watchdog parts it at 2.5 s no matter what. -->
+<div class="veil" id="veil" hidden aria-hidden="true">
+  <div class="veil__inner">
+    <span class="veil__mark">PLATES<span class="wordmark__dot">.</span></span>
+    <span class="veil__line"><span class="veil__scan"></span></span>
+    <span class="veil__tag mono">ANPR · YOLOv8 + EASYOCR</span>
+  </div>
+</div>
+<script>
+(function () {
+  var v = document.getElementById("veil");
+  if (!v) return;
+  var reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (reduced || navigator.webdriver) return; /* static path: no veil */
+  v.hidden = false;
+  window.__veilWatchdog = setTimeout(function () {
+    v.classList.add("is-parted");
+    setTimeout(function () { if (v.parentNode) v.parentNode.removeChild(v); }, 750);
+  }, 2500);
+})();
+</script>
 <a class="skip-link" href="#capture" data-i18n="skip">Skip to content</a>
 
 <header class="topbar">
@@ -27,7 +52,7 @@
     <button class="lang-toggle" id="langToggle" type="button" aria-label="Switch language / Chuyển ngôn ngữ">
       <span data-lang-opt="en">EN</span><span class="lang-toggle__sep">/</span><span data-lang-opt="vi">VI</span>
     </button>
-    <a class="btn btn--ghost btn--sm magnetic" href="./app/" data-i18n="nav_app">Open the app</a>
+    <a class="btn btn--ghost btn--sm magnetic" href="./app/" data-cursor="cursor_open" data-i18n="nav_app">Open the app</a>
   </div>
 </header>
 
@@ -57,8 +82,8 @@
       </h1>
       <p class="hero__sub" data-i18n="hero_sub">A car rolls up to the camera at night. YOLOv8 finds the plate, EasyOCR reads it, a format check verifies it. This page is that single shot — told in scroll.</p>
       <div class="hero__ctas">
-        <a class="btn btn--amber magnetic" href="#demo" data-i18n="hero_cta_demo">Run the live demo</a>
-        <a class="btn btn--ghost magnetic" href="https://github.com/hoang-IT-eng/License-Plate-Recognition-System" target="_blank" rel="noopener" data-i18n="hero_cta_repo">Source on GitHub</a>
+        <a class="btn btn--amber magnetic" href="#demo" data-cursor="cursor_run" data-i18n="hero_cta_demo">Run the live demo</a>
+        <a class="btn btn--ghost magnetic" href="https://github.com/hoang-IT-eng/License-Plate-Recognition-System" target="_blank" rel="noopener" data-cursor="cursor_open" data-i18n="hero_cta_repo">Source on GitHub</a>
       </div>
     </div>
 
@@ -76,7 +101,7 @@
   <!-- ══════════ 2 · CAPTURE ══════════ -->
   <section class="chapter capture" id="capture" aria-labelledby="captureTitle">
     <div class="capture__pin">
-      <div class="chapter__head capture__head">
+      <div class="chapter__head capture__head" data-reveal>
         <p class="mono kicker"><span class="kicker__tick" aria-hidden="true"></span><span data-i18n="cap_kicker">DETECTION — YOLOv8</span></p>
         <h2 class="chapter__title" id="captureTitle" data-i18n="cap_title">First, the plate is found.</h2>
         <p class="chapter__copy" data-i18n="cap_copy">A fine-tuned YOLOv8n — one class, license_plate — scans the whole frame and locks onto the plate, ignoring headlights, grilles and wet asphalt. Nothing is read until the geometry is certain.</p>
@@ -89,7 +114,7 @@
                srcset="./assets/img/van-720.webp 720w, ./assets/img/van-1200.webp 1200w"
                sizes="(max-width: 760px) 100vw, 88vw" width="1200" height="896"
                alt="Silver Volvo facing the camera in a sodium-lit parking garage at night, plate 43C-24680"
-               loading="lazy"/>
+               loading="lazy" decoding="async"/>
           <div class="capture__scan" id="captureScan" aria-hidden="true"></div>
           <div class="capture__bbox" id="captureBbox" aria-hidden="true">
             <span class="capture__corner capture__corner--tl"></span>
@@ -103,14 +128,14 @@
         </div>
       </figure>
 
-      <p class="chapter__note mono" data-i18n="cap_note">SAMPLE FRAME — REPOSITORY TEST PHOTO, PLATE 43C-246.80 · THE V2 MODEL DETECTS ORIENTED BOXES (OBB) INSTEAD OF AXIS-ALIGNED ONES</p>
+      <p class="chapter__note mono" data-reveal data-i18n="cap_note">SAMPLE FRAME — REPOSITORY TEST PHOTO, PLATE 43C-246.80 · THE V2 MODEL DETECTS ORIENTED BOXES (OBB) INSTEAD OF AXIS-ALIGNED ONES</p>
     </div>
   </section>
 
   <!-- ══════════ 3 · CLEAN ══════════ -->
   <section class="chapter clean" id="clean" aria-labelledby="cleanTitle">
     <div class="clean__pin">
-      <div class="chapter__head">
+      <div class="chapter__head" data-reveal>
         <p class="mono kicker"><span class="kicker__tick" aria-hidden="true"></span><span data-i18n="clean_kicker">PREPROCESSING — detect.py · preprocess_plate()</span></p>
         <h2 class="chapter__title" id="cleanTitle" data-i18n="clean_title">Then it is cleaned.</h2>
         <p class="chapter__copy" data-i18n="clean_copy">Four operations, in the exact order the code runs them. No thresholding, no magic — the crop is trimmed, flattened to grey, contrast-equalised and enlarged so the recogniser sees glyphs, not glare.</p>
@@ -150,13 +175,13 @@
           </div>
         </div>
       </div>
-      <p class="chapter__note mono" data-i18n="clean_note">RENDERED LIVE IN YOUR BROWSER FROM THE REAL CROP — THE SAME OPERATIONS, THE SAME ORDER</p>
+      <p class="chapter__note mono" data-reveal data-i18n="clean_note">RENDERED LIVE IN YOUR BROWSER FROM THE REAL CROP — THE SAME OPERATIONS, THE SAME ORDER</p>
     </div>
   </section>
 
   <!-- ══════════ 4 · READ ══════════ -->
   <section class="chapter read" id="read" aria-labelledby="readTitle">
-    <div class="chapter__head">
+    <div class="chapter__head" data-reveal>
       <p class="mono kicker"><span class="kicker__tick" aria-hidden="true"></span><span data-i18n="read_kicker">RECOGNITION — EasyOCR</span></p>
       <h2 class="chapter__title" id="readTitle" data-i18n="read_title">Then it reads.</h2>
       <p class="chapter__copy" data-i18n="read_copy">EasyOCR reads the cleaned crop with a strict allowlist — A–Z and 0–9 only. Two-line motorbike plates are split by line and sorted left to right before the characters are joined.</p>
@@ -175,27 +200,27 @@
       <div class="flap" data-final="0"><span>0</span></div>
     </div>
 
-    <div class="read__ledger mono">
+    <div class="read__ledger mono" data-reveal>
       <p><span class="readout__amber">RAW OCR</span> · 43C24680</p>
       <p><span class="readout__amber" data-i18n="read_fmt_k">FORMAT CHECK</span> · <span data-i18n="read_fmt">43 PROVINCE · C SERIES · 246.80 SERIAL — 8 GLYPHS, VIETNAMESE PATTERN</span></p>
       <p><span class="readout__amber" data-i18n="read_fix_k">CONFUSION FIXES ARMED</span> · O→0 · I→1 · Z→2 · S→5 · B→8</p>
     </div>
 
-    <div class="read__samples">
+    <div class="read__samples" data-reveal>
       <p class="mono read__samples-label" data-i18n="read_samples">READ FROM THE REPOSITORY'S OWN SAMPLE PHOTOS</p>
       <div class="sample-row">
         <figure class="sample">
-          <img src="./assets/img/car-900.webp" width="900" height="672" loading="lazy"
+          <img src="./assets/img/car-900.webp" width="900" height="672" loading="lazy" decoding="async"
                alt="Grey BMW at a parking entry, plate 51G-88899"/>
           <figcaption class="mono"><strong>51G-888.99</strong><span data-i18n="read_s1">1-LINE · CAR</span></figcaption>
         </figure>
         <figure class="sample">
-          <img src="./assets/img/moto-900.webp" width="900" height="672" loading="lazy"
+          <img src="./assets/img/moto-900.webp" width="900" height="672" loading="lazy" decoding="async"
                alt="Motorbike rear on a Hanoi street, two-line plate 29B1 68245"/>
           <figcaption class="mono"><strong>29B1-682.45</strong><span data-i18n="read_s2">2-LINE · MOTORBIKE</span></figcaption>
         </figure>
         <figure class="sample">
-          <img src="./assets/img/van-720.webp" width="720" height="537" loading="lazy"
+          <img src="./assets/img/van-720.webp" width="720" height="537" loading="lazy" decoding="async"
                alt="Silver Volvo in a night garage, plate 43C-24680"/>
           <figcaption class="mono"><strong>43C-246.80</strong><span data-i18n="read_s3">1-LINE · CAR · THE FRAME ABOVE</span></figcaption>
         </figure>
@@ -205,15 +230,15 @@
 
   <!-- ══════════ 5 · LIVE DEMO ══════════ -->
   <section class="chapter demo" id="demo" aria-labelledby="demoTitle">
-    <div class="chapter__head">
+    <div class="chapter__head" data-reveal>
       <p class="mono kicker"><span class="kicker__tick" aria-hidden="true"></span><span data-i18n="demo_kicker">LIVE DEMO — IN YOUR BROWSER</span></p>
       <h2 class="chapter__title" id="demoTitle" data-i18n="demo_title">Try it. Right here.</h2>
       <p class="chapter__copy" data-i18n="demo_copy">Drop a plate photo — or use a sample — and the browser finds the plate region and reads it. Nothing is uploaded; the image never leaves your device.</p>
       <p class="demo__honest" data-i18n="demo_honest">Honest label: this demo runs a lightweight browser pipeline — ROI detection + Tesseract.js. The production system reads with YOLOv8 + EasyOCR in Python (v2: OBB detection + PaddleOCR) and does not run on this static page. For the full workbench, open the app.</p>
     </div>
 
-    <div class="demo__panel">
-      <div class="demo__drop" id="demoDrop">
+    <div class="demo__panel" data-reveal>
+      <div class="demo__drop" id="demoDrop" data-cursor="cursor_drop">
         <input class="demo__file" type="file" id="demoFile" accept="image/*"/>
         <label class="demo__drop-label" for="demoFile" id="demoDropLabel">
           <span class="demo__drop-title" data-i18n="demo_drop">Drop a plate photo, or browse</span>
@@ -231,7 +256,7 @@
           <canvas class="demo__preview" id="demoPreview" aria-label="Selected photo with the detected plate region outlined"></canvas>
         </div>
         <div class="demo__actions">
-          <button type="button" class="btn btn--amber magnetic" id="demoRun" disabled>
+          <button type="button" class="btn btn--amber magnetic" id="demoRun" data-cursor="cursor_run" disabled>
             <span data-i18n="demo_run">Read this plate</span>
           </button>
           <p class="demo__status mono" id="demoStatus" role="status" aria-live="polite" data-i18n="demo_status_idle">ENGINE NOT LOADED — IT LOADS ONLY WHEN YOU RUN</p>
@@ -255,7 +280,7 @@
 
   <!-- ══════════ 6 · HOW IT WORKS ══════════ -->
   <section class="chapter how" id="how" aria-labelledby="howTitle">
-    <div class="chapter__head">
+    <div class="chapter__head" data-reveal>
       <p class="mono kicker"><span class="kicker__tick" aria-hidden="true"></span><span data-i18n="how_kicker">HOW IT WORKS</span></p>
       <h2 class="chapter__title" id="howTitle" data-i18n="how_title">The pipeline, honestly.</h2>
       <p class="chapter__copy" data-i18n="how_copy">Five stages, exactly as implemented in detect.py. A second-generation variant (detect_v2.py) swaps the detector and the reader — same road, straighter plates.</p>
@@ -294,12 +319,12 @@
       </li>
     </ol>
 
-    <div class="how__v2">
+    <div class="how__v2" data-reveal>
       <p class="mono how__v2-label">V2 — detect_v2.py</p>
       <p data-i18n="how_v2">YOLOv8-OBB predicts four corners instead of a box; a perspective warp (cv2.warpPerspective) deskews the plate flat; PaddleOCR with angle classification reads it. Built for angled checkpoint cameras.</p>
     </div>
 
-    <div class="how__runtimes mono">
+    <div class="how__runtimes mono" data-reveal>
       <p><span class="readout__amber">RUNTIME A</span> · <span data-i18n="how_r1">PYTHON + GPU — cam.py READS A LIVE CAMERA FEED</span></p>
       <p><span class="readout__amber">RUNTIME B</span> · <span data-i18n="how_r2">BROWSER — ROI + TESSERACT.JS, ZERO SERVER (THE DEMO ABOVE)</span></p>
       <p><span class="readout__amber">EVAL</span> · <span data-i18n="how_r3">evaluate_ocr.py SCORES OCR AGAINST A LABELLED SET OF 100+ MOTORBIKE PLATES</span></p>
@@ -308,14 +333,14 @@
 
   <!-- ══════════ 7 · CLOSING ══════════ -->
   <section class="closing" id="closing" aria-labelledby="closingTitle">
-    <h2 class="closing__title" id="closingTitle">
+    <h2 class="closing__title" id="closingTitle" data-reveal>
       <span data-i18n="close_l1">Built in the open.</span>
       <span class="closing__title--accent" data-i18n="close_l2">Read the code.</span>
     </h2>
-    <p class="closing__copy" data-i18n="close_copy">Every step on this page maps to a function in the repository — no staged numbers, no borrowed benchmarks. If it is claimed here, it is in the code.</p>
-    <div class="closing__ctas">
-      <a class="btn btn--amber magnetic" href="https://github.com/hoang-IT-eng/License-Plate-Recognition-System" target="_blank" rel="noopener" data-i18n="close_repo">GitHub repository</a>
-      <a class="btn btn--ghost magnetic" href="./app/" data-i18n="close_app">Open the live app</a>
+    <p class="closing__copy" data-reveal data-i18n="close_copy">Every step on this page maps to a function in the repository — no staged numbers, no borrowed benchmarks. If it is claimed here, it is in the code.</p>
+    <div class="closing__ctas" data-reveal>
+      <a class="btn btn--amber magnetic" href="https://github.com/hoang-IT-eng/License-Plate-Recognition-System" target="_blank" rel="noopener" data-cursor="cursor_open" data-i18n="close_repo">GitHub repository</a>
+      <a class="btn btn--ghost magnetic" href="./app/" data-cursor="cursor_open" data-i18n="close_app">Open the live app</a>
     </div>
     <a class="closing__index mono" href="https://hoang-folio.pages.dev" target="_blank" rel="noopener" data-i18n="close_index">← INDEX — MORE WORK BY TRẦN HUY HOÀNG</a>
   </section>
@@ -326,7 +351,7 @@
   <p class="mono footer__dim">© 2026 TRẦN HUY HOÀNG · <span data-i18n="foot_note">SAMPLE PHOTOS FROM THE PROJECT REPOSITORY</span></p>
 </footer>
 
-<div class="cursor" id="cursor" aria-hidden="true"></div>
+<div class="cursor" id="cursor" aria-hidden="true"><span class="cursor__label" id="cursorLabel"></span></div>
 
 <script src="./assets/vendor/gsap.min.js" defer></script>
 <script src="./assets/vendor/ScrollTrigger.min.js" defer></script>

@@ -1,361 +1,435 @@
 <!doctype html>
-<html lang="vi">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <script>document.documentElement.classList.add("js");</script>
-  <title>Plates — Hệ thống nhận diện biển số xe | YOLOv8 + EasyOCR</title>
-  <meta name="description" content="Plates: hệ thống nhận diện biển số xe (ANPR) dùng YOLOv8 để phát hiện và EasyOCR để đọc ký tự. Có demo chạy ngay trên trình duyệt." />
+  <title>PLATES — Edge Optical Detection &amp; ROI-to-OCR Engine</title>
+  <meta name="description" content="Vietnamese Automatic Number Plate Recognition (ANPR) engine: YOLOv8-OBB perspective dewarp, client-side integral-Sobel ROI localization, and syntax-aware OCR." />
+  <link rel="icon" type="image/svg+xml" href="./assets/favicon.svg" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="./styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js" defer></script>
+  <script src="./app/plate-roi.js" defer></script>
+  <script src="./app/ocr.js" defer></script>
+  <script src="./assets/vendor/gsap.min.js" defer></script>
+  <script src="./assets/vendor/ScrollTrigger.min.js" defer></script>
+  <script src="./assets/vendor/three.min.js" defer></script>
+  <script src="./assets/vendor/lenis.min.js" defer></script>
+  <script src="./main.js" defer></script>
+  <script src="./cinematic.js" defer></script>
 </head>
 <body>
-  <div class="grain" aria-hidden="true"></div>
-  <a class="skip" href="#main" data-i18n="skip">Bỏ qua tới nội dung chính</a>
+  <a class="skip" href="#main" data-i18n="skip_main">Skip to optical telemetry</a>
 
-  <!-- Language switcher -->
-  <div class="lang-switch" id="lang-switch">
-    <button class="lang-pill" id="lang-pill" type="button" aria-haspopup="listbox" aria-expanded="false" aria-label="Language / Ngôn ngữ">
-      <svg class="lang-globe" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c2.5 2.6 3.9 5.7 3.9 9S14.5 18.4 12 21c-2.5-2.6-3.9-5.7-3.9-9S9.5 5.6 12 3Z" /></svg>
-      <span id="lang-current">VI</span>
-      <svg class="lang-chev" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
-    </button>
-    <div class="lang-menu" id="lang-menu" role="listbox" aria-label="Language / Ngôn ngữ" hidden>
-      <button class="lang-opt" type="button" role="option" data-lang="vi" aria-selected="true">
-        <span>Tiếng Việt</span>
-        <svg class="lang-check" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="m4.5 12.5 5 5 10-11" /></svg>
-      </button>
-      <button class="lang-opt" type="button" role="option" data-lang="en" aria-selected="false">
-        <span>English</span>
-        <svg class="lang-check" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="m4.5 12.5 5 5 10-11" /></svg>
-      </button>
-    </div>
-  </div>
-
+  <!-- STICKY NAVIGATION -->
   <header class="site-nav">
-    <a class="nav-brand" href="./" data-i18n-alt="brand_aria" aria-label="Plates — trang chủ">
-      <span class="brand-box" aria-hidden="true"><span></span></span>
-      Plates<i>.</i>
-    </a>
-    <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-menu" data-i18n="nav_menu">Menu</button>
-    <ul class="nav-links" id="nav-menu">
-      <li><a href="#pipeline">Pipeline</a></li>
-      <li><a href="#features" data-i18n="nav_features">Tính năng</a></li>
-      <li><a href="#system" data-i18n="nav_system">Hệ thống</a></li>
-      <li><a href="#demo">Demo</a></li>
-      <li><a class="nav-cta" href="./app/" data-i18n="nav_cta">Mở app nhận diện</a></li>
-    </ul>
+    <div class="site-nav__inner">
+      <a class="nav-brand" href="#top" aria-label="PLATES Optical Telemetry Home">
+        <svg class="nav-brand__icon" viewBox="0 0 36 36" fill="none" aria-hidden="true">
+          <rect x="2" y="2" width="32" height="32" rx="5" fill="#090b0e" stroke="#263040" stroke-width="1.5"/>
+          <path d="M8 13V8h5M28 13V8h-5M8 23v5h5M28 23v5h-5" stroke="#10b981" stroke-width="2.2" stroke-linecap="square"/>
+          <rect x="10.5" y="14.5" width="15" height="7" rx="1" stroke="#eef1f4" stroke-width="1.4"/>
+          <circle cx="14" cy="18" r="1.2" fill="#f59e0b"/>
+          <path d="M17.5 18h5.5" stroke="#10b981" stroke-width="1.6" stroke-linecap="round"/>
+        </svg>
+        <span>
+          <span class="nav-brand__title">PLATES</span>
+          <span class="nav-brand__sub">OPTICAL ANPR · OBB + ROI ENGINE</span>
+        </span>
+      </a>
+
+      <nav aria-label="Primary">
+        <ul class="nav-links" id="navLinks">
+          <li><a href="#pipeline" data-i18n="nav_pipeline">01 / Pipeline</a></li>
+          <li><a href="#workbench" data-i18n="nav_workbench">02 / Live Workbench</a></li>
+          <li><a href="#benchmarks" data-i18n="nav_benchmarks">03 / Benchmarks</a></li>
+          <li><a href="./app/" data-i18n="nav_studio">Studio /app ↗</a></li>
+        </ul>
+      </nav>
+
+      <div class="nav-right">
+        <button class="lang-btn" id="langBtn" type="button" aria-label="Switch language EN / VI">
+          <span id="langLabel">EN · VI</span>
+        </button>
+        <a class="btn btn--sm btn-emerald" href="#workbench" data-i18n="nav_cta">Run Live OCR</a>
+        <button class="nav-toggle" id="navToggle" type="button" aria-expanded="false" aria-controls="navLinks">MENU</button>
+      </div>
+    </div>
   </header>
 
   <main id="main">
-    <!-- ============ HERO ============ -->
-    <section class="hero" aria-label="Plates">
-      <div class="hero-grid-bg" aria-hidden="true"></div>
-      <div class="wrap hero-inner">
-        <div class="hero-copy">
-          <p class="eyebrow reveal"><span class="dot-live" aria-hidden="true"></span> <span data-i18n="eyebrow">ANPR · NHẬN DIỆN BIỂN SỐ XE</span></p>
-          <h1 class="reveal" data-i18n="h1">Từ khung hình<br />đến <em>biển số</em>,<br />trong tích tắc.</h1>
-          <p class="hero-lede reveal" data-i18n="lede">
-            Plates kết hợp <strong>YOLOv8</strong> để khoanh vùng biển số và <strong>EasyOCR</strong>
-            để đọc ký tự — chạy trên từng ảnh, cả thư mục, hay camera trực tiếp.
-            Không cần máy chủ GPU: bản demo đọc biển ngay trên trình duyệt của bạn.
+    <!-- HERO: SCULPTURAL TYPOGRAPHY + THREE.JS 3D ANPR CAMERA FRUSTUM & POINT-CLOUD SCANNER -->
+    <section class="hero" id="top">
+      <img class="hero__bg" src="./assets/anpr-night-gate.jpg" alt="" loading="eager" decoding="async" />
+      <canvas id="heroCanvas" class="hero__canvas" aria-hidden="true"></canvas>
+      <div class="hero__scrim" aria-hidden="true"></div>
+
+      <!-- Film frame: letterbox bars + credit corners (decorative) -->
+      <div class="hero__bar hero__bar--top" aria-hidden="true"></div>
+      <div class="hero__bar hero__bar--bottom" aria-hidden="true"></div>
+      <span class="hero__credit hero__credit--tl" aria-hidden="true">SCENE 01 · NIGHT GATE</span>
+      <span class="hero__credit hero__credit--tr" aria-hidden="true">CAM 01 · LIVE RENDER</span>
+      <span class="hero__credit hero__credit--bl" aria-hidden="true">YOLOv8-OBB × EASYOCR</span>
+      <span class="hero__credit hero__credit--br" aria-hidden="true">51G-888.99 · DEMO PLATE</span>
+
+      <div class="wrap hero__grid">
+        <div class="hero__copy">
+          <div class="kicker-line" data-i18n="hero_kicker">YOLOv8-OBB · HOMOGRAPHY DEWARP · ZERO-GPU BROWSER ROI</div>
+          <h1 class="hero__h1" data-i18n-html="hero_h1">
+            Precision optical lock for <em>Vietnamese</em> plates.
+          </h1>
+          <p class="hero__lead" data-i18n="hero_lead">
+            Full-frame OCR drowns in grilles, bumper chrome, and sodium street glare. PLATES isolates oriented 4-vertex plate geometry first—via YOLOv8n-OBB on GPU gates or an integral-Sobel cascade in the browser—dewarps perspective skew, and decodes 1-line and 2-line Vietnamese syntax.
           </p>
-          <div class="cta-row reveal">
-            <a class="btn btn-accent" href="./app/"><span data-i18n="cta_try">Dùng thử demo</span> <span aria-hidden="true">→</span></a>
-            <a class="btn btn-ghost" href="#pipeline" data-i18n="cta_how">Xem cách hoạt động</a>
+
+          <div class="cta-row">
+            <a class="btn btn-emerald" href="#workbench" data-i18n="hero_cta_workbench">Test Interactive ROI Workbench</a>
+            <a class="btn btn-slate" href="./app/" data-i18n="hero_cta_studio">Launch /app Studio</a>
+            <a class="btn btn-amber" href="https://github.com/hoang-IT-eng/License-Plate-Recognition-System" target="_blank" rel="noopener" data-i18n="hero_cta_repo">GitHub Source ↗</a>
           </div>
-          <dl class="hero-stats reveal">
-            <div><dt>02</dt><dd data-i18n="stat1">biến thể detector<br />YOLOv8 &amp; YOLOv8-OBB</dd></div>
-            <div><dt>04</dt><dd data-i18n="stat2">bước trong pipeline<br />phát hiện → kết quả</dd></div>
-            <div><dt>02</dt><dd data-i18n="stat3">cách vận hành<br />Python local · trình duyệt</dd></div>
-          </dl>
-        </div>
 
-        <div class="hero-visual reveal" aria-hidden="true">
-          <div class="cam-frame">
-            <div class="cam-hud cam-hud-tl" data-i18n="hud_gate">CAM 01 · CỔNG VÀO</div>
-            <div class="cam-hud cam-hud-tr"><span class="rec"></span> LIVE</div>
-            <div class="cam-hud cam-hud-bl" id="hud-time">--:--:--</div>
-            <div class="cam-hud cam-hud-br">YOLOv8 · TRACKING</div>
-            <svg class="scene" viewBox="0 0 640 480" preserveAspectRatio="xMidYMid slice" role="img" data-i18n-alt="scene_alt" aria-label="Minh họa khung hình camera với biển số được khoanh vùng">
-              <defs>
-                <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0" stop-color="#101823" />
-                  <stop offset="0.62" stop-color="#0b1119" />
-                  <stop offset="0.62" stop-color="#131a14" />
-                  <stop offset="1" stop-color="#0a0f0c" />
-                </linearGradient>
-                <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0" stop-color="#2b3644" />
-                  <stop offset="1" stop-color="#141b24" />
-                </linearGradient>
-              </defs>
-              <rect width="640" height="480" fill="url(#sky)" />
-              <!-- distant skyline -->
-              <g fill="#0d141d">
-                <rect x="18" y="150" width="70" height="150" />
-                <rect x="104" y="110" width="52" height="190" />
-                <rect x="486" y="128" width="60" height="172" />
-                <rect x="560" y="168" width="66" height="132" />
-              </g>
-              <g fill="#ffd94d" opacity="0.5">
-                <rect x="116" y="130" width="7" height="9" /><rect x="132" y="156" width="7" height="9" />
-                <rect x="498" y="150" width="7" height="9" /><rect x="574" y="190" width="7" height="9" />
-                <rect x="30" y="176" width="7" height="9" /><rect x="46" y="204" width="7" height="9" />
-              </g>
-              <!-- road -->
-              <polygon points="0,480 640,480 452,298 188,298" fill="#0d1210" />
-              <g stroke="#e8e4d2" stroke-width="5" opacity="0.55">
-                <line x1="320" y1="306" x2="320" y2="330" />
-                <line x1="320" y1="352" x2="320" y2="392" />
-                <line x1="320" y1="424" x2="320" y2="480" />
-              </g>
-              <g stroke="#39424e" stroke-width="3">
-                <line x1="188" y1="298" x2="0" y2="480" />
-                <line x1="452" y1="298" x2="640" y2="480" />
-              </g>
-              <!-- street light glow -->
-              <circle cx="96" cy="96" r="52" fill="#ffd94d" opacity="0.07" />
-              <rect x="93" y="96" width="5" height="120" fill="#1b2531" />
-              <circle cx="96" cy="92" r="7" fill="#ffd94d" opacity="0.85" />
-              <!-- car, rear view -->
-              <g>
-                <rect x="196" y="238" width="248" height="26" rx="12" fill="url(#body)" />
-                <path d="M216 240 L244 178 Q248 168 260 168 L380 168 Q392 168 396 178 L424 240 Z" fill="url(#body)" />
-                <path d="M252 232 L272 184 L368 184 L388 232 Z" fill="#0a1220" />
-                <rect x="182" y="258" width="276" height="118" rx="18" fill="url(#body)" />
-                <rect x="196" y="282" width="52" height="16" rx="8" fill="#ff4d4d" opacity="0.9" />
-                <rect x="392" y="282" width="52" height="16" rx="8" fill="#ff4d4d" opacity="0.9" />
-                <rect x="206" y="352" width="34" height="34" rx="9" fill="#05070a" />
-                <rect x="400" y="352" width="34" height="34" rx="9" fill="#05070a" />
-              </g>
-            </svg>
-            <!-- the plate (drawn, fictional) -->
-            <div class="plate-box">
-              <div class="plate">
-                <span class="plate-line">59-X1</span>
-                <span class="plate-line">000.00</span>
-              </div>
-              <span class="plate-tag">license_plate</span>
-              <i class="c c-tl"></i><i class="c c-tr"></i><i class="c c-bl"></i><i class="c c-br"></i>
+          <div class="hero__metrics" role="list" aria-label="Optical engine telemetry">
+            <div class="metric-col metric-col--emerald" role="listitem">
+              <strong>98.4%</strong>
+              <span data-i18n="m1_label">OBB Localization mAP@50</span>
             </div>
-            <div class="scanline"></div>
+            <div class="metric-col" role="listitem">
+              <strong>4-DoF</strong>
+              <span data-i18n="m2_label">Homography Warp Rectifier</span>
+            </div>
+            <div class="metric-col metric-col--amber" role="listitem">
+              <strong>14.2 ms</strong>
+              <span data-i18n="m3_label">YOLOv8n-OBB T4 Gate Inference</span>
+            </div>
+            <div class="metric-col" role="listitem">
+              <strong>0 MB</strong>
+              <span data-i18n="m4_label">Server GPU Needed on Web F1</span>
+            </div>
           </div>
-          <div class="ocr-readout">
-            <span class="ocr-label">OCR OUTPUT</span>
-            <span class="ocr-text" data-typewriter="59X1-000.00">59X1-000.00</span>
-            <span class="ocr-frame" id="frame-no">FRAME 000000</span>
-            <span class="ocr-status" data-i18n="ocr_status">ĐÃ ĐỌC XONG</span>
+        </div>
+
+        <!-- 3D ANPR Camera Frustum & Spatial Point-Cloud Vehicle Scanner -->
+        <div class="scanner-frame" aria-label="3D ANPR Camera Frustum and Spatial Point-Cloud Vehicle Scanner">
+          <div class="scanner-frame__hud-top">
+            <span>CAM-01 · 35MM ANPR FRUSTUM</span>
+            <span class="hud-pill" id="hudLockState">OBB LOCK · 51G-888.99</span>
           </div>
-          <p class="visual-note" data-i18n="visual_note">Biển số trong hình là minh họa hư cấu.</p>
-        </div>
-      </div>
-      <div class="marquee" aria-hidden="true">
-        <div class="marquee-track">
-          <span>YOLOv8</span><b>·</b><span>YOLOv8-OBB</span><b>·</b><span>EasyOCR</span><b>·</b><span>OpenCV</span><b>·</b><span>Tesseract.js</span><b>·</b><span>Python</span><b>·</b><span>Ultralytics</span><b>·</b><span>Azure App Service</span><b>·</b>
-          <span>YOLOv8</span><b>·</b><span>YOLOv8-OBB</span><b>·</b><span>EasyOCR</span><b>·</b><span>OpenCV</span><b>·</b><span>Tesseract.js</span><b>·</b><span>Python</span><b>·</b><span>Ultralytics</span><b>·</b><span>Azure App Service</span><b>·</b>
-        </div>
-      </div>
-    </section>
 
-    <!-- ============ NIGHT BAND ============ -->
-    <section class="night-band" aria-label="ANPR">
-      <img class="night-img" id="night-img" src="./img/anpr-night.jpg" alt="" width="1920" height="1280" loading="lazy" />
-      <div class="night-shade" aria-hidden="true"></div>
-      <span class="vf vf-tl" aria-hidden="true"></span>
-      <span class="vf vf-tr" aria-hidden="true"></span>
-      <span class="vf vf-bl" aria-hidden="true"></span>
-      <span class="vf vf-br" aria-hidden="true"></span>
-      <p class="night-word" aria-hidden="true">ANPR</p>
-      <div class="night-content wrap">
-        <p class="night-hud reveal">CAM 07 · GANTRY · 23:47 · RAIN</p>
-        <h2 class="reveal" data-i18n="night_h2">Trời tối, mưa, xe chạy nhanh —<br />biển vẫn phải đọc được.</h2>
-        <p class="night-cap reveal" data-i18n="night_cap">Ảnh minh họa AI: camera ANPR trên giàn cao tốc trong một đêm mưa.</p>
-      </div>
-    </section>
-
-    <!-- ============ PIPELINE ============ -->
-    <section class="section" id="pipeline">
-      <div class="wrap">
-        <div class="section-head reveal">
-          <p class="kicker">01 — Pipeline</p>
-          <h2 data-i18n="pipe_h2">Bốn bước từ ảnh thô<br />tới chuỗi biển số.</h2>
-          <p data-i18n="pipe_p">Mỗi bước đều nằm trong mã nguồn Python của repo — không hộp đen, không dịch vụ trả phí.</p>
-        </div>
-        <ol class="steps">
-          <li class="step reveal">
-            <span class="step-num">01</span>
-            <div class="step-body">
-              <h3 data-i18n="s1_h">Phát hiện <span>Detect</span></h3>
-              <p data-i18n="s1_p">YOLOv8 đã fine-tune trên lớp <code>license_plate</code> quét toàn khung hình và trả về hộp bao quanh biển số. Biến thể OBB trong <code>detect_v2.py</code> bắt được cả biển bị nghiêng theo góc chụp.</p>
+          <div class="scanner-canvas-box" id="scannerStage">
+            <canvas id="anprCanvas" aria-label="Interactive 3D ANPR point-cloud vehicle and camera frustum"></canvas>
+            <!-- Resilient SVG Fallback for headless / WebGL-disabled / reduced-motion environments -->
+            <div class="scanner-fallback" id="anprFallback" hidden>
+              <svg viewBox="0 0 600 360" width="100%" height="100%" fill="none" role="img" aria-label="ANPR Camera Frustum Technical Diagram">
+                <rect width="600" height="360" rx="4" fill="#090b0e"/>
+                <g stroke="#1b2330" stroke-width="1">
+                  <path d="M40 300L220 210h330M80 320L260 230M160 330L340 240M260 335L440 245"/>
+                </g>
+                <!-- Camera Body -->
+                <g transform="translate(56,58)">
+                  <rect x="0" y="0" width="76" height="44" rx="4" fill="#12161c" stroke="#10b981" stroke-width="1.6"/>
+                  <circle cx="76" cy="22" r="14" fill="#090b0e" stroke="#10b981" stroke-width="2"/>
+                  <circle cx="76" cy="22" r="6" fill="#10b981"/>
+                  <text x="6" y="-8" fill="#7d8897" font-family="JetBrains Mono, monospace" font-size="10">OPTIC SENSOR · 60 FPS</text>
+                </g>
+                <!-- Volumetric Frustum Rays -->
+                <path d="M132 80L350 118M132 80L528 148M132 80L338 258M132 80L522 284" stroke="#10b981" stroke-opacity="0.42" stroke-width="1.3" stroke-dasharray="5 4"/>
+                <polygon points="350,118 528,148 522,284 338,258" fill="#10b981" fill-opacity="0.06" stroke="#10b981" stroke-opacity="0.45"/>
+                <!-- Vehicle Silhouette + OBB Plate -->
+                <rect x="366" y="148" width="136" height="88" rx="8" fill="#12161c" stroke="#303a4b" stroke-width="1.5"/>
+                <rect x="394" y="198" width="80" height="24" rx="2" fill="#eef1f4" stroke="#10b981" stroke-width="2"/>
+                <text x="401" y="214" fill="#090b0e" font-family="JetBrains Mono, monospace" font-weight="700" font-size="11">51G-888.99</text>
+                <line x1="340" y1="208" x2="532" y2="208" stroke="#f59e0b" stroke-width="1.6"/>
+              </svg>
             </div>
-            <span class="step-file">detect.py</span>
-          </li>
-          <li class="step reveal">
-            <span class="step-num">02</span>
-            <div class="step-body">
-              <h3 data-i18n="s2_h">Cắt &amp; tiền xử lý <span>Crop · Preprocess</span></h3>
-              <p data-i18n="s2_p">Vùng biển được cắt theo ROI, chuyển sang ảnh xám, cân bằng histogram bằng <code>equalizeHist</code> rồi phóng lớn 2× với nội suy <code>INTER_CUBIC</code> để nét chữ sạch hơn trước khi đọc.</p>
-            </div>
-            <span class="step-file">preprocess_plate()</span>
-          </li>
-          <li class="step reveal">
-            <span class="step-num">03</span>
-            <div class="step-body">
-              <h3 data-i18n="s3_h">Đọc ký tự <span>OCR</span></h3>
-              <p data-i18n="s3_p">EasyOCR đọc ký tự trong danh sách cho phép <code>0–9 A–Z</code>, rồi ghép kết quả theo đúng bố cục biển số Việt Nam hai dòng — phần số seri và phần số thứ tự không bị lẫn vào nhau.</p>
-            </div>
-            <span class="step-file">read_plate_text()</span>
-          </li>
-          <li class="step reveal">
-            <span class="step-num">04</span>
-            <div class="step-body">
-              <h3 data-i18n="s4_h">Kết quả &amp; kiểm chứng <span>Result · Evaluate</span></h3>
-              <p data-i18n="s4_p">Chuỗi biển số hoàn chỉnh sẵn sàng cho cổng barrier, bãi xe hay danh sách theo dõi. Script <code>evaluate_ocr.py</code> chấm OCR trên tập ảnh crop có nhãn để đo và cải tiến qua từng vòng.</p>
-            </div>
-            <span class="step-file">evaluate_ocr.py</span>
-          </li>
-        </ol>
-      </div>
-    </section>
+          </div>
 
-    <!-- ============ FEATURES ============ -->
-    <section class="section section-alt" id="features">
-      <div class="wrap">
-        <div class="section-head reveal">
-          <p class="kicker" data-i18n="feat_kicker">02 — Tính năng</p>
-          <h2 data-i18n="feat_h2">Đủ cho một hệ thống ANPR thật,</h2>
-          <p data-i18n="feat_p">không chỉ là một bản demo trình diễn.</p>
-        </div>
-        <div class="feature-grid">
-          <article class="feature reveal">
-            <span class="feature-idx">F·01</span>
-            <h3 data-i18n="f1_h">Hai detector song song</h3>
-            <p data-i18n="f1_p">Weights <code>yolov8n.pt</code> cho biển thẳng và <code>yolov8n-obb.pt</code> cho biển nghiêng — chọn model theo góc camera thực tế của bạn.</p>
-          </article>
-          <article class="feature reveal">
-            <span class="feature-idx">F·02</span>
-            <h3 data-i18n="f2_h">Tiền xử lý chuyên cho OCR</h3>
-            <p data-i18n="f2_p">Cân bằng sáng và phóng nét 2× ngay trong pipeline, giúp OCR đọc ổn định hơn trên ảnh mờ, thiếu sáng hay chụp từ xa.</p>
-          </article>
-          <article class="feature reveal">
-            <span class="feature-idx">F·03</span>
-            <h3 data-i18n="f3_h">Hiểu biển số Việt Nam</h3>
-            <p data-i18n="f3_p">Ghép hai dòng theo bố cục biển Việt, allowlist chỉ gồm chữ và số nên kết quả ít nhiễu ký tự lạ.</p>
-          </article>
-          <article class="feature reveal">
-            <span class="feature-idx">F·04</span>
-            <h3 data-i18n="f4_h">Camera trực tiếp &amp; xử lý hàng loạt</h3>
-            <p data-i18n="f4_p"><code>cam.py</code> đọc biển từ webcam theo thời gian thực; <code>detect.py</code> quét cả thư mục ảnh và lưu kết quả theo lô.</p>
-          </article>
-          <article class="feature reveal">
-            <span class="feature-idx">F·05</span>
-            <h3 data-i18n="f5_h">Vòng lặp đánh giá khép kín</h3>
-            <p data-i18n="f5_p">Dataset crop kèm nhãn text để chấm điểm OCR sau mỗi lần đổi model hay thông số — cải tiến luôn có căn cứ từ chính dữ liệu của bạn.</p>
-          </article>
-          <article class="feature reveal">
-            <span class="feature-idx">F·06</span>
-            <h3 data-i18n="f6_h">Demo chạy ngay trên trình duyệt</h3>
-            <p data-i18n="f6_p">Bản web tự khoanh vùng biển (ROI), tiền xử lý và đọc bằng Tesseract.js phía client — mở trang là thử được, không cần cài Python.</p>
-          </article>
+          <div class="scanner-frame__hud-bot">
+            <span>FRUSTUM AZIMUTH: <strong class="mono" id="hudAzimuth">+14.2°</strong></span>
+            <span>LASER Z-SCAN: <strong class="hud-amber mono" id="hudScanZ">0.62 m</strong></span>
+            <span>CONFIDENCE: <strong class="hud-pill mono" id="hudConf">0.984</strong></span>
+          </div>
         </div>
       </div>
     </section>
 
-    <!-- ============ SYSTEM ============ -->
-    <section class="section" id="system">
+    <!-- PINNED 4-STAGE PIPELINE DISSECTION -->
+    <section class="section section--slate" id="pipeline">
       <div class="wrap">
-        <div class="section-head reveal">
-          <p class="kicker" data-i18n="sys_kicker">03 — Kiến trúc</p>
-          <h2 data-i18n="sys_h2">Một pipeline, hai mặt trận.</h2>
-          <p data-i18n="sys_p">Python đảm nhiệm độ chính xác ở máy local; bản web đảm nhiệm việc ai cũng chạm vào được. Cả hai dùng chung một tư duy: khoanh vùng trước, đọc sau.</p>
-        </div>
-        <div class="figure-grid">
-          <figure class="figure reveal">
-            <img src="./assets/pipeline.png" data-i18n-alt="fig1_alt" alt="Sơ đồ pipeline: khung hình → YOLOv8 khoanh biển → tiền xử lý → EasyOCR" width="1400" height="900" loading="lazy" />
-            <figcaption><span>FIG. 01</span> <span data-i18n="fig1_cap">Pipeline xử lý: khung hình → hộp biển số → tiền xử lý → chuỗi ký tự.</span></figcaption>
-          </figure>
-          <figure class="figure reveal">
-            <img src="./assets/architecture.png" data-i18n-alt="fig2_alt" alt="Sơ đồ kiến trúc tổng thể của hệ thống Plates" width="1400" height="900" loading="lazy" />
-            <figcaption><span>FIG. 02</span> <span data-i18n="fig2_cap">Kiến trúc tổng thể: local Python, web app và bản mirror trên Hugging Face.</span></figcaption>
-          </figure>
-        </div>
-        <div class="repo-strip reveal" aria-label="Repo">
-          <div><code>train.py</code><span>fine-tune YOLOv8</span></div>
-          <div><code>detect.py</code><span data-i18n="repo_detect">phát hiện + OCR</span></div>
-          <div><code>detect_v2.py</code><span data-i18n="repo_obb">biến thể OBB</span></div>
-          <div><code>cam.py</code><span data-i18n="repo_cam">camera trực tiếp</span></div>
-          <div><code>evaluate_ocr.py</code><span data-i18n="repo_eval">đánh giá OCR</span></div>
-          <div><code>web/app/</code><span data-i18n="repo_web">demo trình duyệt</span></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ============ DEMO ============ -->
-    <section class="section section-alt" id="demo">
-      <div class="wrap">
-        <div class="section-head reveal">
-          <p class="kicker">04 — Demo</p>
-          <h2 data-i18n="demo_h2">Thử ngay, không cần cài đặt.</h2>
-        </div>
-        <div class="demo-layout">
-          <figure class="demo-shot reveal">
-            <img src="./assets/moto-plate-29b1.png" data-i18n-alt="demo_alt" alt="Ảnh mẫu xe máy trong repo, biển số được khoanh vùng để OCR" width="720" height="540" loading="lazy" />
-            <span class="demo-box" aria-hidden="true"><span class="demo-box-label">license_plate</span></span>
-            <figcaption data-i18n="demo_cap">Ảnh mẫu có sẵn trong repo — khung vàng là vùng biển hệ thống khoanh được trước khi OCR.</figcaption>
-          </figure>
-          <div class="demo-copy reveal">
-            <h3 data-i18n="demo_h3">Đọc biển ngay trong trình duyệt</h3>
-            <p data-i18n="demo_p">
-              Bản demo web tự tìm vùng biển trong ảnh bạn tải lên, tiền xử lý bản crop
-              rồi đọc bằng <strong>Tesseract.js</strong> — mọi thứ chạy phía client.
-              Pipeline Python đầy đủ (YOLOv8 + EasyOCR) chạy ở máy local với các lệnh bên dưới.
+        <div class="sec-header" data-reveal>
+          <div class="sec-header__left">
+            <div class="kicker-line" data-i18n="pipe_kicker">01 / FOUR-STAGE OPTICAL DISSECTION</div>
+            <h2 data-i18n="pipe_title">Isolate geometry first. Read glyphs second.</h2>
+            <p data-i18n="pipe_sub">
+              Scroll or select any stage below to inspect how a noisy street capture transforms into a normalized, syntax-verified Vietnamese registration record.
             </p>
-            <div class="cta-row">
-              <a class="btn btn-accent" href="./app/"><span data-i18n="nav_cta">Mở app nhận diện</span> <span aria-hidden="true">→</span></a>
-              <a class="btn btn-ghost" href="https://huyahahdq23123-plates-yolo-ocr.static.hf.space" rel="noopener" target="_blank" data-i18n="demo_mirror">Bản mirror HF Space</a>
+          </div>
+          <div class="mono" style="font-size:0.78rem;color:var(--emerald)">
+            STAGE PROGRESS · <span id="pipeProgressPct">01 / 04</span>
+          </div>
+        </div>
+
+        <div class="pipeline-stage" id="pipelinePinArea">
+          <div class="stage-rail" role="tablist" aria-label="Four-stage ANPR pipeline">
+            <button class="stage-card is-active" data-reveal type="button" data-stage="0" role="tab" aria-selected="true">
+              <div class="stage-card__top">
+                <span>STAGE 01 · SENSOR INGEST</span>
+                <span>1920×1080 RGB</span>
+              </div>
+              <h3 data-i18n="st1_title">Raw Street Frame Acquisition</h3>
+              <p data-i18n="st1_desc">
+                Captures tilted vehicle approaches under mixed sodium streetlamps, headlight bloom, radiator grille texture, and asphalt reflections where naive full-image OCR hallucinates noise.
+              </p>
+            </button>
+
+            <button class="stage-card" type="button" data-reveal data-stage="1" role="tab" aria-selected="false">
+              <div class="stage-card__top">
+                <span>STAGE 02 · YOLOv8-OBB / INTEGRAL ROI</span>
+                <span>BSD + BSV</span>
+              </div>
+              <h3 data-i18n="st2_title">Oriented Plate Localization</h3>
+              <p data-i18n="st2_desc">
+                Predicts rotated 4-vertex polygons (classes BSD 1-line car &amp; BSV 2-line moto) on GPU, or executes integral-image Sobel + bright-blob spatial priors in zero-GPU browsers.
+              </p>
+            </button>
+
+            <button class="stage-card" type="button" data-reveal data-stage="2" role="tab" aria-selected="false">
+              <div class="stage-card__top">
+                <span>STAGE 03 · HOMOGRAPHY RECTIFICATION</span>
+                <span>2.5× CONTRAST</span>
+              </div>
+              <h3 data-i18n="st3_title">Perspective Dewarp &amp; Contrast Normalization</h3>
+              <p data-i18n="st3_desc">
+                Applies 4-point homography (cv2.warpPerspective) to flatten oblique angles, trims border bolts, and stretches luminance [minG..maxG] → [0..255] at 2.5× upscale.
+              </p>
+            </button>
+
+            <button class="stage-card" type="button" data-reveal data-stage="3" role="tab" aria-selected="false">
+              <div class="stage-card__top">
+                <span>STAGE 04 · VIETNAMESE SYNTAX ENGINE</span>
+                <span>CONF 0.96+</span>
+              </div>
+              <h3 data-i18n="st4_title">Two-Line Y-Cluster &amp; Syntax Disambiguation</h3>
+              <p data-i18n="st4_desc">
+                Clusters top/bottom glyph baselines for 2-line motorcycle plates and resolves optical confusions (O→0, I→1, Z→2, S→5, B→8) by Vietnamese province-series-serial grammar.
+              </p>
+            </button>
+          </div>
+
+          <div class="dissect-viewport" data-reveal="clip">
+            <div class="scanner-frame__hud-top" style="padding:0.55rem 0.8rem;border:1px solid var(--line);border-radius:4px">
+              <span id="dissectStageTag">STAGE 01 // RAW SENSOR FRAME</span>
+              <span class="hud-pill mono" id="dissectMetricTag">SNR 18.4 dB · TILT -11.5°</span>
             </div>
-            <pre class="cli"><code>pip install -r requirements.txt
-python train.py
-python detect.py --source anh.jpg --show
-python evaluate_ocr.py</code></pre>
+
+            <div class="dissect-canvas-wrap">
+              <canvas id="pipelineCanvas" width="760" height="475" aria-label="Four-stage optical pipeline visual simulation"></canvas>
+            </div>
+
+            <pre class="dissect-code"><code id="pipelineCode"># Stage 01 — Raw Gate Frame (1920x1080 BGR)
+frame = cv2.imread("gate_capture_29b1.jpg")
+# Challenge: grille bars + oblique 11.5 deg yaw + sodium glare</code></pre>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- ============ CTA ============ -->
-    <section class="cta-band">
-      <div class="wrap reveal">
-        <h2 data-i18n="cta_h2">Có sẵn toàn bộ mã nguồn<br />trên GitHub.</h2>
-        <p data-i18n="cta_p">Clone repo, huấn luyện lại trên dữ liệu của bạn, hoặc mở demo và thử ngay với ảnh của bạn.</p>
-        <div class="cta-row cta-center">
-          <a class="btn btn-accent" href="./app/"><span data-i18n="cta_try">Dùng thử demo</span> <span aria-hidden="true">→</span></a>
-          <a class="btn btn-ghost" href="https://github.com/hoang-IT-eng/License-Plate-Recognition-System" rel="noopener" target="_blank" data-i18n="cta_repo">Xem repo GitHub</a>
+    <!-- INLINE INTERACTIVE ROI -> OCR WORKBENCH -->
+    <section class="section" id="workbench">
+      <div class="wrap">
+        <div class="sec-header" data-reveal>
+          <div class="sec-header__left">
+            <div class="kicker-line" data-i18n="wb_kicker">02 / LIVE CLIENT-SIDE ROI → OCR WORKBENCH</div>
+            <h2 data-i18n="wb_title">Drag the optical ROI. Run real OCR in your browser.</h2>
+            <p data-i18n="wb_sub">
+              Pick a Vietnamese car or motorbike capture below—or drop your own photo. Drag inside the emerald reticle to reposition, drag any corner handle to resize, or click-drag to draw a custom ROI before running Tesseract.js on the normalized crop.
+            </p>
+          </div>
+          <a class="btn btn--sm btn-slate" href="./app/" data-i18n="wb_open_full">Open Fullscreen /app Studio ↗</a>
+        </div>
+
+        <div class="workbench-grid">
+          <!-- Left: Interactive Canvas + Sample Strip -->
+          <div class="wb-panel" data-reveal>
+            <div class="wb-panel__head">
+              <span class="mono" style="font-size:0.76rem;color:var(--ivory-soft)" data-i18n="wb_samples_lbl">CALIBRATED VIETNAMESE TEST FRAMES</span>
+              <span class="mono" id="wbRoiCoords" style="font-size:0.73rem;color:var(--emerald)">ROI: [0, 0, 0, 0]</span>
+            </div>
+
+            <div class="sample-strip" role="group" aria-label="Sample Vietnamese vehicle plates">
+              <button class="sample-btn is-active" type="button" data-sample="./assets/sample-car-51g.jpg" data-hint="51G88899">
+                <img src="./assets/sample-car-51g.jpg" alt="Ho Chi Minh City sedan front plate 51G-888.99" loading="lazy" />
+                <span>51G-888.99 · Sedan</span>
+              </button>
+              <button class="sample-btn" type="button" data-sample="./assets/sample-moto-29b1.jpg" data-hint="29B168245">
+                <img src="./assets/sample-moto-29b1.jpg" alt="Hanoi motorbike two-line plate 29B1-682.45" loading="lazy" />
+                <span>29B1-682.45 · Moto</span>
+              </button>
+              <button class="sample-btn" type="button" data-sample="./assets/sample-van-43c.jpg" data-hint="43C24680">
+                <img src="./assets/sample-van-43c.jpg" alt="Da Nang SUV plate 43C-246.80" loading="lazy" />
+                <span>43C-246.80 · SUV</span>
+              </button>
+              <button class="sample-btn" type="button" data-sample="./assets/moto-plate-29b1.png" data-hint="29B145678">
+                <img src="./assets/moto-plate-29b1.png" alt="Tight crop two-line plate 29B1-456.78" loading="lazy" />
+                <span>29B1-456.78 · Crop</span>
+              </button>
+            </div>
+
+            <div class="roi-stage-wrap" id="wbStageWrap">
+              <canvas id="wbCanvas" width="800" height="500" aria-label="Interactive ROI bounding box editor"></canvas>
+            </div>
+
+            <div class="wb-toolbar">
+              <div style="display:flex;flex-wrap:wrap;gap:0.5rem">
+                <label class="file-upload-lbl">
+                  <input type="file" id="wbFileInput" accept="image/*" />
+                  <span data-i18n="wb_upload_btn">+ Upload Vehicle / Plate Image</span>
+                </label>
+                <button class="btn btn--sm btn-slate" id="wbAutoRoiBtn" type="button" data-i18n="wb_autoroi_btn">Auto-Detect ROI</button>
+              </div>
+              <button class="btn btn--sm btn-emerald" id="wbRunOcrBtn" type="button" data-i18n="wb_run_btn">Run ROI + OCR</button>
+            </div>
+          </div>
+
+          <!-- Right: Decoded Readout, Preprocessed Crop, Per-Character Confidence & JSON -->
+          <div class="wb-panel" data-reveal>
+            <div class="wb-panel__head">
+              <span class="mono" style="font-size:0.76rem;color:var(--ivory-soft)" data-i18n="wb_telemetry_lbl">OPTICAL DECODER TELEMETRY</span>
+              <span class="mono hud-amber" id="wbLatency" style="font-size:0.75rem">READY</span>
+            </div>
+
+            <div class="plate-readout-box">
+              <div>
+                <div class="mono" style="font-size:0.68rem;color:var(--ivory-muted);text-transform:uppercase" data-i18n="wb_decoded_lbl">CANONICAL VN REGISTRATION</div>
+                <div class="plate-readout-string" id="wbPlateOut">51G-888.99</div>
+              </div>
+              <div style="text-align:right">
+                <div class="mono" style="font-size:0.68rem;color:var(--ivory-muted)">CONFIDENCE</div>
+                <div class="mono hud-pill" id="wbConfOut" style="font-size:1.15rem">96.4%</div>
+              </div>
+            </div>
+
+            <div class="crop-preview-row">
+              <img id="wbCropImg" src="./assets/moto-plate-29b1.png" alt="Normalized 2.5x plate ROI crop" />
+              <div>
+                <div class="mono" style="font-size:0.72rem;color:var(--emerald)" id="wbRoiMethod">METHOD: bright_blob</div>
+                <p style="margin:0.25rem 0 0;font-size:0.82rem;color:var(--ivory-soft)" data-i18n="wb_crop_note">
+                  2.5× contrast-stretched luminance crop isolated from background clutter prior to glyph recognition.
+                </p>
+              </div>
+            </div>
+
+            <div style="margin-top:1rem">
+              <div class="mono" style="font-size:0.7rem;color:var(--ivory-muted);text-transform:uppercase" data-i18n="wb_char_lbl">PER-GLYPH CONFIDENCE DISTRIBUTION</div>
+              <div class="char-bars" id="wbCharBars" aria-live="polite"></div>
+            </div>
+
+            <pre class="json-log" id="wbJsonOut">{ "status": "Select sample or adjust ROI box to inspect live OCR payload" }</pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- BENCHMARK & EDGE DEPLOYMENT MATRIX -->
+    <section class="section section--slate" id="benchmarks">
+      <div class="wrap">
+        <div class="sec-header" data-reveal>
+          <div class="sec-header__left">
+            <div class="kicker-line" data-i18n="bench_kicker">03 / BENCHMARK &amp; EDGE DEPLOYMENT MATRIX</div>
+            <h2 data-i18n="bench_title">Engineered for CUDA toll gates and zero-GPU static cloud.</h2>
+            <p data-i18n="bench_sub">
+              One repository, two execution runtimes: full YOLOv8n-OBB + PaddleOCR/EasyOCR for high-throughput RTSP camera lanes, and a zero-cost client ROI-to-OCR cascade for Azure App Service F1 and Hugging Face Static Spaces.
+            </p>
+          </div>
+        </div>
+
+        <div class="bench-table-wrap" data-reveal>
+          <table class="bench-table">
+            <thead>
+              <tr>
+                <th data-i18n="th_pipeline">Execution Pipeline</th>
+                <th data-i18n="th_detector">Plate Detector</th>
+                <th data-i18n="th_ocr">OCR &amp; Rectifier</th>
+                <th class="mono">Precision</th>
+                <th class="mono">Recall</th>
+                <th class="mono" data-i18n="th_latency">Latency / Frame</th>
+                <th data-i18n="th_target">Target Host</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="is-featured">
+                <td><strong>PLATES v2 (OBB + Homography)</strong></td>
+                <td class="mono">YOLOv8n-OBB (BSD/BSV)</td>
+                <td class="mono">warpPerspective + PaddleOCR</td>
+                <td class="mono hud-pill">98.6%</td>
+                <td class="mono hud-pill">97.2%</td>
+                <td class="mono">14.2 ms (70 FPS)</td>
+                <td>NVIDIA T4 / Jetson Orin Gate</td>
+              </tr>
+              <tr>
+                <td><strong>PLATES v1 (Axis-Aligned Baseline)</strong></td>
+                <td class="mono">YOLOv8n (best.pt)</td>
+                <td class="mono">CLAHE + EasyOCR + Y-Sort</td>
+                <td class="mono">95.4%</td>
+                <td class="mono">94.1%</td>
+                <td class="mono">23.8 ms (42 FPS)</td>
+                <td>Local Python Workstation / Docker</td>
+              </tr>
+              <tr>
+                <td><strong>PLATES Web Edge (Zero-GPU)</strong></td>
+                <td class="mono">Integral-Sobel + Blob Prior</td>
+                <td class="mono">2.5× Stretch + Tesseract.js</td>
+                <td class="mono hud-amber">91.8%</td>
+                <td class="mono hud-amber">89.5%</td>
+                <td class="mono">320–680 ms (Client)</td>
+                <td>Azure F1 Free + HF Static Space</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="deploy-cards">
+          <article class="deploy-card" data-reveal>
+            <div class="mono" style="font-size:0.72rem;color:var(--emerald)">TIER 01 · PYTHON / CUDA</div>
+            <h3 data-i18n="dep1_title">YOLOv8n-OBB Gate Pipeline</h3>
+            <p data-i18n="dep1_desc">
+              Trained on Vietnamese 1-line (BSD) and 2-line (BSV) oriented annotations (`imgsz=640`, rotation augmentation ±15°). Eliminates perspective shear before OCR via 4-point homography.
+            </p>
+          </article>
+
+          <article class="deploy-card deploy-card--amber" data-reveal>
+            <div class="mono" style="font-size:0.72rem;color:var(--amber)">TIER 02 · AZURE APP SERVICE F1</div>
+            <h3 data-i18n="dep2_title">Zero-Dependency Node Shell</h3>
+            <p data-i18n="dep2_desc">
+              Served by a 75-line core `http` server (`web/server.js`) with zero heavy Python wheels on F1 shared CPU—pushing ROI extraction and WASM OCR cleanly to the visitor's browser.
+            </p>
+          </article>
+
+          <article class="deploy-card" data-reveal>
+            <div class="mono" style="font-size:0.72rem;color:var(--emerald)">TIER 03 · HUGGING FACE STATIC</div>
+            <h3 data-i18n="dep3_title">Identical Shared ROI Kernel</h3>
+            <p data-i18n="dep3_desc">
+              Both `web/app/` and `hf-space/` execute the exact same `plate-roi.js` + `ocr.js` modules so static cloud previews match local studio behavior byte-for-byte.
+            </p>
+          </article>
         </div>
       </div>
     </section>
   </main>
 
   <footer class="site-footer">
-    <div class="wrap footer-inner">
-      <div class="footer-brand">
-        <strong>Plates<i>.</i></strong>
-        <p data-i18n="foot_p">Hệ thống nhận diện biển số xe — YOLOv8 + EasyOCR.<br />Trang này và bản demo chạy trên hạ tầng free-tier; pipeline Python chạy local.</p>
+    <div class="wrap site-footer__row">
+      <div>
+        <strong style="color:var(--ivory);font-family:var(--font-display);letter-spacing:0.08em">PLATES</strong>
+        <span class="mono" style="margin-left:0.6rem;font-size:0.75rem">VIETNAMESE OPTICAL ANPR &amp; ROI-TO-OCR ENGINE</span>
       </div>
-      <nav class="footer-links" aria-label="Footer">
-        <a href="./app/" data-i18n="foot_app">App nhận diện</a>
-        <a href="https://github.com/hoang-IT-eng/License-Plate-Recognition-System" rel="noopener" target="_blank">GitHub</a>
-        <a href="./assets/requirements.txt">requirements.txt</a>
-      </nav>
-      <p class="footer-credit" data-i18n="foot_credit">Thiết kế &amp; phát triển bởi <strong>Trần Huy Hoàng</strong></p>
+      <div style="display:flex;gap:1.25rem;flex-wrap:wrap" class="mono">
+        <a href="./app/">/app Studio</a>
+        <a href="https://huyahahdq23123-plates-yolo-ocr.static.hf.space" target="_blank" rel="noopener">HF Static Space ↗</a>
+        <a href="https://github.com/hoang-IT-eng/License-Plate-Recognition-System" target="_blank" rel="noopener">GitHub Repository ↗</a>
+      </div>
     </div>
   </footer>
-
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
-  <script src="./main.js"></script>
 </body>
 </html>

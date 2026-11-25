@@ -5,81 +5,111 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Plates App — Live ROI + OCR</title>
   <meta name="description" content="Plates recognition: client-side plate ROI crop then Tesseract.js OCR on Azure F1." />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../assets/fonts/fonts.css" />
+  <meta name="theme-color" content="#0b0c0e" />
+  <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="./app.css" />
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script src="./plate-roi.js" defer></script>
   <script src="./ocr.js" defer></script>
 </head>
 <body class="app-body">
+  <!-- Film layer: letterbox bars open once on load; grain + vignette are static overlays. -->
+  <div class="film" aria-hidden="true">
+    <span class="film-bar film-bar--top"></span>
+    <span class="film-bar film-bar--bottom"></span>
+    <span class="film-grain"></span>
+    <span class="film-vignette"></span>
+  </div>
+
   <div class="app-shell">
     <aside class="app-side">
-      <a class="logo" href="../">Plates</a>
+      <a class="logo" href="../">Plates<span>.</span></a>
       <nav aria-label="App">
-        <a class="active" href="./">Recognize</a>
+        <a class="active" href="./" aria-current="page">Recognize</a>
         <a href="../#how">Pipeline</a>
         <a href="../#demo">Demos</a>
         <a href="https://huyahahdq23123-plates-yolo-ocr.static.hf.space" rel="noopener" target="_blank">HF OCR ↗</a>
         <a href="https://github.com/hoang-IT-eng/License-Plate-Recognition-System" rel="noopener" target="_blank">Repo ↗</a>
       </nav>
       <p class="side-note">
-        F1 runs <strong>plate ROI → OCR crop</strong> in-browser (contour/heuristics + Tesseract.js). YOLO/EasyOCR stays local / HF PRO Gradio.
+        This host runs <strong>plate ROI → OCR crop</strong> in your browser (contour heuristics + Tesseract.js). YOLO and EasyOCR run locally or on the HF Gradio Space.
       </p>
     </aside>
 
-    <div class="app-main">
+    <main class="app-main">
       <header class="app-top">
-        <div>
-          <h1>Recognition</h1>
-          <p>Upload a vehicle/plate photo — detect plate ROI, OCR the crop only.</p>
+        <div class="app-title">
+          <p class="app-kicker">Gate camera 01 · night shift</p>
+          <h1>Read the plate.</h1>
+          <p class="app-lede">Drop a frame from the gate. The page finds the plate, crops it and reads only the crop.</p>
         </div>
         <div class="cta-row">
-          <button class="btn btn-teal" id="runOcr" type="button" disabled>Run ROI + OCR</button>
+          <button class="btn btn-amber" id="runOcr" type="button" disabled>Run ROI + OCR</button>
           <a class="btn btn-outline" href="../">Back to landing</a>
         </div>
       </header>
 
-      <div class="banner">
-        YOLO weights are skipped on Azure F1. This page uses a <strong>lightweight client plate detector</strong>
-        (bright-blob + edge-window heuristics), then Tesseract.js on the <strong>cropped ROI</strong> — same path as the
-        <a href="https://huyahahdq23123-plates-yolo-ocr.static.hf.space" rel="noopener" target="_blank">HF static Space</a>.
-      </div>
-
       <div class="workspace">
-        <section class="panel">
-          <h2>Capture</h2>
-          <label class="dropzone" id="dropzone">
-            <input id="file" type="file" accept="image/*" />
-            <div>
-              <strong>Drop image or click to browse</strong>
-              <span>JPG / PNG · plate or full vehicle frame</span>
+        <section class="panel panel--stage" aria-labelledby="captureTitle">
+          <h2 id="captureTitle" class="sr-only">Capture</h2>
+          <div class="viewfinder" id="viewfinder" data-state="idle">
+            <div class="vf-hud vf-hud--top" aria-hidden="true">
+              <span class="vf-rec"><i></i>REC</span>
+              <span class="vf-tc" id="timecode">00:00:00:00</span>
+              <span class="vf-state" id="vfState">Standby</span>
             </div>
-          </label>
-          <div class="preview-wrap" id="previewWrap">
-            <canvas id="preview" aria-label="Uploaded preview with ROI"></canvas>
+            <span class="vf-corner vf-corner--tl" aria-hidden="true"></span>
+            <span class="vf-corner vf-corner--tr" aria-hidden="true"></span>
+            <span class="vf-corner vf-corner--bl" aria-hidden="true"></span>
+            <span class="vf-corner vf-corner--br" aria-hidden="true"></span>
+            <span class="vf-beam" aria-hidden="true"></span>
+
+            <label class="dropzone" id="dropzone">
+              <input id="file" type="file" accept="image/*" />
+              <div>
+                <strong>Drop a gate frame, or click to browse</strong>
+                <span>JPG or PNG · a plate close-up or the whole vehicle</span>
+              </div>
+            </label>
+            <div class="preview-wrap" id="previewWrap">
+              <canvas id="preview" aria-label="Uploaded preview with ROI"></canvas>
+            </div>
+            <div class="vf-hud vf-hud--bottom" aria-hidden="true">
+              <span>CLASS license_plate</span>
+              <span>ROI → OCR crop</span>
+            </div>
           </div>
           <div class="meta-row" id="meta" hidden></div>
         </section>
 
-        <section class="panel">
-          <h2>Readout</h2>
-          <ul class="result-list" id="results">
-            <li><span>Waiting for image…</span><span class="conf">—</span></li>
-          </ul>
-          <pre class="cli" id="ocrJson" style="margin-top:1rem;max-height:220px;overflow:auto;font-size:0.8rem" hidden></pre>
-          <div class="pipeline-mini" aria-label="Pipeline status">
-            <div><i>1</i> Detect plate ROI (client heuristics)</div>
-            <div><i>2</i> Preprocess crop — trim / equalize / 2×</div>
-            <div><i>3</i> OCR allowlist on crop — Tesseract.js</div>
-            <div><i>4</i> Review / export</div>
+        <section class="panel panel--readout" aria-labelledby="readoutTitle">
+          <h2 id="readoutTitle">Readout</h2>
+          <div class="plate-read" id="plateRead" data-state="empty" aria-live="polite">
+            <span class="plate-read__label">Plate</span>
+            <output class="plate-read__value" id="plateBig">— — — —</output>
           </div>
+          <ul class="result-list" id="results">
+            <li><span>Waiting for a frame</span><span class="conf">—</span></li>
+          </ul>
+          <pre class="cli" id="ocrJson" hidden></pre>
+          <ol class="pipeline-mini" aria-label="Pipeline">
+            <li>Detect the plate ROI (client heuristics)</li>
+            <li>Clean the crop: trim, equalize, upscale 2×</li>
+            <li>OCR the crop with a plate allowlist (Tesseract.js)</li>
+            <li>Review the read and export the JSON</li>
+          </ol>
         </section>
       </div>
-    </div>
+
+      <p class="banner">
+        YOLO weights are skipped on the free Azure host. This page uses a lightweight client plate detector
+        (bright-blob + edge-window heuristics), then Tesseract.js on the cropped ROI, the same path as the
+        <a href="https://huyahahdq23123-plates-yolo-ocr.static.hf.space" rel="noopener" target="_blank">HF static Space</a>.
+      </p>
+    </main>
   </div>
-  <script src="../main.js"></script>
+  <script src="./film.js"></script>
   <script>
     (function () {
       var drop = document.getElementById("dropzone");
@@ -92,6 +122,7 @@
       var runBtn = document.getElementById("runOcr");
       var ocrJson = document.getElementById("ocrJson");
       var ready = false;
+      var film = window.PlatesFilm || { state: function () {}, plate: function () {} };
       var sourceCanvas = null;
 
       function setResults(rows) {
@@ -124,6 +155,8 @@
             '<span class="chip">Ready for ROI + OCR</span>';
           runBtn.disabled = false;
           ocrJson.hidden = true;
+          film.state("loaded");
+          film.plate(null);
           setResults([
             { label: "Preview loaded", value: "UI OK" },
             { label: "YOLO on this host", value: "Skipped (F1)" },
@@ -135,6 +168,7 @@
           ready = false;
           runBtn.disabled = true;
           setResults([{ label: "Decode failed", value: "Error" }]);
+          film.state("error");
         };
         img.src = url;
       }
@@ -142,6 +176,7 @@
       async function runOcr() {
         if (!ready || !sourceCanvas) return;
         runBtn.disabled = true;
+        film.state("scanning");
         setResults([
           { label: "OCR status", value: "Detecting ROI…" },
           { label: "YOLO on this host", value: "Skipped (F1)" },
@@ -163,12 +198,15 @@
           ]);
           ocrJson.hidden = false;
           ocrJson.textContent = JSON.stringify(out, null, 2);
+          film.state(out.plate_guess || out.full_text ? "locked" : "nomatch");
+          film.plate(out.plate_guess || out.full_text || "");
         } catch (e) {
           setResults([
             { label: "OCR failed", value: String(e && e.message ? e.message : e) },
           ]);
           ocrJson.hidden = false;
           ocrJson.textContent = JSON.stringify({ ok: false, error: String(e) }, null, 2);
+          film.state("error");
         } finally {
           runBtn.disabled = !ready;
         }

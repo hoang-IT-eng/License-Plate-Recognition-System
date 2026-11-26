@@ -29,16 +29,37 @@
     if (label) label.textContent = LABELS[name] || name;
   }
 
+  /* The read lands on the same split-flap board as the landing's night
+     chase (../flap.js). Long or empty reads fall back to plain text. */
+  /* Fit the board to the readout card: glyph cells are 0.68·h wide,
+     separators 0.26·h, gaps 0.08·h (see assets/flap.css). */
+  function sizeBoard(out, text, box) {
+    var cs = global.getComputedStyle(box);
+    var w = box.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - 4;
+    var seps = (text.match(/[^0-9A-Z]/g) || []).length;
+    var units = (text.length - seps) * 0.68 + seps * 0.26 + (text.length - 1) * 0.08;
+    var h = Math.max(22, Math.min(54, w / units));
+    out.style.setProperty("--fl-h", h.toFixed(1) + "px");
+  }
   function plate(text) {
     var box = $("plateRead");
     var out = $("plateBig");
     if (!box || !out) return;
     if (text === null) {
       box.setAttribute("data-state", "empty");
+      out.classList.remove("flapboard2");
       out.textContent = "— — — —";
       return;
     }
     box.setAttribute("data-state", text ? "read" : "miss");
+    var t = text ? String(text).toUpperCase().replace(/\s+/g, " ").trim() : "";
+    if (t && t.length <= 12 && global.PlatesFlap) {
+      sizeBoard(out, t, box);
+      var board = global.PlatesFlap.create(out, { text: t });
+      board.play(t);
+      return;
+    }
+    out.classList.remove("flapboard2");
     out.textContent = text || "Not readable";
   }
 

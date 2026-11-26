@@ -41,10 +41,15 @@
       nav_capture: "Capture", nav_clean: "Clean", nav_read: "Read", nav_demo: "Live demo", nav_how: "Pipeline",
       nav_app: "Open the app",
       hero_kicker: "ANPR · YOLOv8 + EasyOCR · Vietnam",
-      hero_l1: "Read at", hero_l2: "the gate.",
-      hero_sub: "A car rolls up to the camera at night. YOLOv8 finds the plate, EasyOCR reads it, a format check verifies it. This page is that single shot — told in scroll.",
+      hero_l1: "Read it", hero_l2: "on the move.",
+      hero_sub: "One car, one rainy night. The camera tracks it, locks onto the plate, lays the plate flat and reads it — the whole pipeline, told in one scroll.",
       hero_cta_demo: "Run the live demo", hero_cta_repo: "Source on GitHub",
-      hero_scroll: "SCROLL — THE CAR APPROACHES",
+      hero_scroll: "SCROLL — FOLLOW THE CAR", hero_cta_app: "Open the app",
+      beat1_k: "01 · TRACK", beat1: "One car in the rain. The camera stays on it.",
+      beat2_k: "02 · DETECT", beat2: "YOLOv8 finds the plate and locks on — headlights, glare and wet asphalt ignored.",
+      beat3_k: "03 · DESKEW", beat3: "Four corners, one perspective warp: the angled plate is laid flat.",
+      beat4_k: "04 · READ", beat4: "The OCR reads it glyph by glyph — PaddleOCR in v2, Tesseract.js in the browser demo.",
+      chase_note: "SAMPLE PLATE FROM THE REPOSITORY · 1-LINE CAR",
       cap_kicker: "DETECTION — YOLOv8",
       cap_title: "First, the plate is found.",
       cap_copy: "A fine-tuned YOLOv8n — one class, license_plate — scans the whole frame and locks onto the plate, ignoring headlights, grilles and wet asphalt. Nothing is read until the geometry is certain.",
@@ -109,10 +114,15 @@
       nav_capture: "Bắt hình", nav_clean: "Làm sạch", nav_read: "Đọc", nav_demo: "Demo trực tiếp", nav_how: "Quy trình",
       nav_app: "Mở ứng dụng",
       hero_kicker: "ANPR · YOLOv8 + EasyOCR · Việt Nam",
-      hero_l1: "Đọc ngay", hero_l2: "tại trạm.",
-      hero_sub: "Một chiếc xe tiến vào camera trong đêm. YOLOv8 tìm biển số, EasyOCR đọc ký tự, bước kiểm tra định dạng xác thực kết quả. Trang này là chính khung hình đó — kể lại bằng thao tác cuộn.",
+      hero_l1: "Đọc ngay", hero_l2: "khi xe chạy.",
+      hero_sub: "Một chiếc xe, một đêm mưa. Camera bám theo, khoá vào biển số, nắn phẳng rồi đọc — cả pipeline kể trong một lần cuộn.",
       hero_cta_demo: "Chạy demo trực tiếp", hero_cta_repo: "Mã nguồn trên GitHub",
-      hero_scroll: "CUỘN — XE ĐANG TIẾN VÀO",
+      hero_scroll: "CUỘN — BÁM THEO XE", hero_cta_app: "Mở ứng dụng",
+      beat1_k: "01 · BÁM THEO", beat1: "Một chiếc xe giữa mưa đêm. Camera bám sát nó.",
+      beat2_k: "02 · PHÁT HIỆN", beat2: "YOLOv8 tìm ra biển số và khoá chặt — bỏ qua đèn pha, ánh loá và mặt đường ướt.",
+      beat3_k: "03 · NẮN PHẲNG", beat3: "Bốn góc, một phép nắn phối cảnh: biển số đang nghiêng được trải phẳng.",
+      beat4_k: "04 · ĐỌC", beat4: "OCR đọc từng ký tự — PaddleOCR ở bản v2, Tesseract.js trong demo trình duyệt.",
+      chase_note: "BIỂN SỐ MẪU TỪ REPO · Ô TÔ 1 DÒNG",
       cap_kicker: "PHÁT HIỆN — YOLOv8",
       cap_title: "Đầu tiên, biển số được tìm thấy.",
       cap_copy: "YOLOv8n đã fine-tune — một lớp duy nhất, license_plate — quét toàn bộ khung hình và khóa vào biển số, bỏ qua đèn pha, lưới tản nhiệt và mặt nhựa đường ướt. Chưa có gì được đọc cho tới khi hình học chắc chắn.",
@@ -247,125 +257,13 @@
     return t * t * (3 - 2 * t);
   }
 
-  /* ───────────────── THE SCAN — one engine, three hosts ─────────────────
-     hero3d.js is a GPU particle point-cloud: a LiDAR-style scan of the
-     checkpoint. ONE canvas is re-parented between the veil (particles
-     converge into the plate outline while the page loads), the hero
-     (scroll morphs dust → scene; the plate locks on) and the closing
-     section (outline + the glyphs of 43C-246.80). Capability gates per
-     the cinematic-web skill: reduced motion / automation, low-end
-     hardware, saveData and software WebGL all stay on the graded
-     still. QA flags: ?scan=off forces the still, ?scan=on forces the
-     engine (screenshot passes, worst-case measuring). */
-  var heroCanvas = document.getElementById("heroCanvas");
+  /* ───────────────── Hero: NIGHT CHASE ─────────────────
+     chase.js owns the hero — capability gate, pin, Three.js scene
+     (chase3d.js, loaded on demand) and the lock / deskew / split-flap
+     layer. Booted here, before the other pins, so ScrollTrigger lays the
+     pins out in page order. */
   var heroStill = document.getElementById("heroStill");
-  var heroMedia = heroCanvas ? heroCanvas.parentNode : null;
-  var veilHost = document.getElementById("veilHost");
-  var closingHost = document.getElementById("closingHost");
-  var scanParam = null;
-  try { scanParam = new URLSearchParams(global.location.search).get("scan"); } catch (e) { /* ignore */ }
-  var SCAN_ON = scanParam === "on";
-  var lowEnd = (navigator.hardwareConcurrency || 4) <= 2 || (navigator.deviceMemory && navigator.deviceMemory <= 2);
-  var saveData = !!(navigator.connection && navigator.connection.saveData);
-  var coarsePointer = !!(global.matchMedia && global.matchMedia("(pointer: coarse)").matches);
-  var engineOK = !!heroCanvas && scanParam !== "off" && (SCAN_ON || (!MOTION_OFF && !lowEnd && !saveData));
-  var engine = { requested: false, ready: false, dead: false };
-  var heroVisible = true;
-  var closingVisible = false;
-  var veilActive = false;
-
-  function veilIsArmed() {
-    var v = document.getElementById("veil");
-    return !!(v && !v.hidden);
-  }
-  function engineUpdateRun() {
-    if (!engine.ready || engine.dead || !global.PlatesHero3D) return;
-    if (veilActive || heroVisible || closingVisible) global.PlatesHero3D.start();
-    else global.PlatesHero3D.stop();
-  }
-  function engineParted() {
-    veilActive = false;
-    if (engine.ready && !engine.dead && global.PlatesHero3D) {
-      global.PlatesHero3D.setMode("hero");
-    }
-    engineUpdateRun();
-  }
-  function loadEngine() {
-    if (engine.requested || !engineOK) return;
-    engine.requested = true;
-    var s = document.createElement("script");
-    s.src = "./assets/vendor/three.min.js";
-    s.onload = function () {
-      var h = document.createElement("script");
-      h.src = "./hero3d.js";
-      h.onload = function () {
-        if (!global.PlatesHero3D) { engine.dead = true; return; }
-        var ok = global.PlatesHero3D.init(heroCanvas, {
-          count: coarsePointer ? 12000 : 48000,
-          coarse: coarsePointer,
-          force: SCAN_ON
-        });
-        if (!ok) { engine.dead = true; return; }
-        engine.ready = true;
-        global.PlatesHero3D.setHosts({ veil: veilHost, hero: heroMedia, closing: closingHost });
-        global.PlatesHero3D.setMode(veilActive ? "veil" : "hero");
-        engineUpdateRun();
-      };
-      h.onerror = function () { engine.dead = true; };
-      document.head.appendChild(h);
-    };
-    s.onerror = function () { engine.dead = true; };
-    document.head.appendChild(s);
-  }
-  global.addEventListener("plates-hero-fallback", function () { engine.dead = true; });
-  /* QA hooks for screenshot passes — inert in normal use. */
-  global.__platesSetProgress = function (p) {
-    if (global.PlatesHero3D) global.PlatesHero3D.setProgress(p);
-  };
-  global.__platesSetMode = function (m) {
-    if (global.PlatesHero3D) global.PlatesHero3D.setMode(m);
-  };
-  global.__platesState = function () {
-    if (!global.PlatesHero3D) return null;
-    return {
-      ready: global.PlatesHero3D.isReady(),
-      mode: global.PlatesHero3D.getMode(),
-      progress: global.PlatesHero3D.getProgressSmooth(),
-      plate: global.PlatesHero3D.getPlateMix(),
-      canvasParent: heroCanvas.parentNode ? (heroCanvas.parentNode.id || heroCanvas.parentNode.className) : null,
-      live: heroCanvas.classList.contains("is-live")
-    };
-  };
-
-  if (engineOK && "IntersectionObserver" in global) {
-    new IntersectionObserver(function (entries) {
-      entries.forEach(function (en) {
-        heroVisible = en.isIntersecting;
-        if (en.isIntersecting) loadEngine();
-        engineUpdateRun();
-      });
-    }, { threshold: 0.02 }).observe(document.getElementById("top"));
-
-    var closingSection = document.getElementById("closing");
-    if (closingSection) {
-      new IntersectionObserver(function (entries) {
-        entries.forEach(function (en) {
-          closingVisible = en.isIntersecting;
-          if (engine.ready && !engine.dead && global.PlatesHero3D) {
-            if (en.isIntersecting) global.PlatesHero3D.setMode("closing");
-            else if (global.PlatesHero3D.getMode() === "closing") global.PlatesHero3D.setMode("hero");
-          }
-          engineUpdateRun();
-        });
-      }, { threshold: 0.12 }).observe(closingSection);
-    }
-  }
-  /* Veil armed → the engine is wanted immediately: the converge plays
-     behind the wordmark while fonts + the hero frame load. */
-  if (engineOK && veilIsArmed()) {
-    veilActive = true;
-    loadEngine();
-  }
+  if (global.PlatesChase) global.PlatesChase.boot({ motionOff: MOTION_OFF, hasGsap: hasGsap });
 
   /* ───────────────── Headline intro + page veil ───────────────── */
   /* Skill §4: split the hero headline into masked word spans; initial
@@ -428,12 +326,6 @@
   var veilT0 = Date.now();
   function partVeil() {
     if (veilParted) return;
-    /* Give THE SCAN a beat to converge behind the wordmark before the
-       veil parts (the inline 2.5 s watchdog still caps the wait). */
-    if (veilEl && !veilEl.hidden && Date.now() - veilT0 < 1000) {
-      setTimeout(partVeil, 1000 - (Date.now() - veilT0));
-      return;
-    }
     veilParted = true;
     if (veilEl && veilEl.parentNode) {
       if (global.__veilWatchdog) { clearTimeout(global.__veilWatchdog); global.__veilWatchdog = null; }
@@ -442,18 +334,19 @@
         if (veilEl.parentNode) veilEl.parentNode.removeChild(veilEl);
       }, 800);
     }
-    engineParted(); /* the canvas re-parents into the hero as the veil lifts */
     playIntro();
   }
   if (MOTION_OFF || !veilEl || veilEl.hidden) {
     /* Static path (or veil never armed): no veil, headline simply shown. */
     playIntro();
   } else {
+    /* The veil lifts on the first rendered frame of the night street
+       (or the still, on the static path) — capped below the watchdog. */
     var heroFrameReady = new Promise(function (resolve) {
-      if (!heroStill || heroStill.complete) { resolve(); return; }
-      heroStill.addEventListener("load", resolve);
-      heroStill.addEventListener("error", resolve);
-      setTimeout(resolve, 1800);
+      global.addEventListener("plates-chase-ready", resolve);
+      if (document.documentElement.classList.contains("chase-static") && (!heroStill || heroStill.complete)) resolve();
+      else if (heroStill && document.documentElement.classList.contains("chase-static")) heroStill.addEventListener("load", resolve);
+      setTimeout(resolve, 2000);
     });
     var fontsReady = (document.fonts && document.fonts.ready) ? document.fonts.ready : Promise.resolve();
     Promise.all([fontsReady, heroFrameReady]).then(partVeil);
@@ -465,28 +358,6 @@
     var gsap = global.gsap;
     gsap.registerPlugin(global.ScrollTrigger);
     var isMobile = global.matchMedia("(max-width: 760px)").matches;
-
-    /* Hero dolly */
-    gsap.timeline({
-      scrollTrigger: { trigger: ".hero", start: "top top", end: "+=110%", scrub: 0.6, pin: true, anticipatePin: 1 }
-    }).to({}, {
-      duration: 1,
-      onUpdate: function () {
-        var p = this.progress();
-        if (global.PlatesHero3D) global.PlatesHero3D.setProgress(p);
-        if (heroStill && !heroCanvas.classList.contains("is-live")) {
-          heroStill.style.transform = "scale(" + (1 + p * 0.1) + ")";
-        }
-        var readout = document.querySelector(".hero__readout");
-        if (readout) readout.style.opacity = String(1 - smoothstep(0.55, 0.95, p));
-        var content = document.querySelector(".hero__content");
-        if (content) {
-          content.style.transform = "translateY(" + (-p * 34) + "px)";
-          /* The copy hands the frame to the car in the last third of the dolly. */
-          content.style.opacity = String(1 - smoothstep(0.55, 1, p) * 0.82);
-        }
-      }
-    });
 
     /* Capture — dolly, scan, snap */
     var capImg = document.getElementById("captureImg");

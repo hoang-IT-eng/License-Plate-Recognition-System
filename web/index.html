@@ -3,11 +3,12 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>PLATES — Night Checkpoint · Vietnamese License Plate Recognition</title>
-<meta name="description" content="A Vietnamese license-plate recognition pipeline told in one night shot: YOLOv8 finds the plate, EasyOCR reads it, a format check verifies it. Live browser demo included."/>
+<title>PLATES — Night Chase · Vietnamese License Plate Recognition</title>
+<meta name="description" content="A Vietnamese license-plate recognition pipeline told as one night chase: the camera tracks a car, YOLOv8 locks onto the plate, the plate is deskewed and read. Live browser demo included."/>
 <link rel="icon" href="./assets/favicon.svg" type="image/svg+xml"/>
 <link rel="stylesheet" href="./assets/fonts/fonts.css"/>
 <link rel="preload" as="font" type="font/woff2" href="./assets/fonts/bricolage-grotesque-300-800-latin.woff2" crossorigin/>
+<link rel="stylesheet" href="./assets/flap.css"/>
 <link rel="stylesheet" href="./styles.css"/>
 <link rel="preload" as="image" href="./assets/img/night-gate-768.webp" media="(max-width: 760px)"/>
 <link rel="preload" as="image" href="./assets/img/night-gate-1376.webp" media="(min-width: 761px)"/>
@@ -18,10 +19,6 @@
      simply there). Parts as soon as fonts + the hero frame are ready;
      the inline watchdog parts it at 2.5 s no matter what. -->
 <div class="veil" id="veil" hidden aria-hidden="true">
-  <!-- THE SCAN lives here first: the particle canvas converges from
-       dust into the plate outline behind the wordmark while the page
-       loads, then re-parents into the hero as the veil parts. -->
-  <div class="scan-host veil__host" id="veilHost" aria-hidden="true"></div>
   <div class="veil__inner">
     <span class="veil__mark">PLATES<span class="wordmark__dot">.</span></span>
     <span class="veil__line"><span class="veil__scan"></span></span>
@@ -61,8 +58,12 @@
 </header>
 
 <main id="main">
-  <!-- ══════════ 1 · HERO ══════════ -->
-  <section class="hero" id="top" aria-label="Night checkpoint">
+  <!-- ══════════ 1 · HERO — NIGHT CHASE ══════════
+       Live: a procedural rainy street (chase3d.js) pinned for a few
+       screens; the camera tracks one car, locks onto its plate, lifts the
+       plate out flat and reads it on a split-flap board. Static (reduced
+       motion / no capable GPU): the night still + the plate as text. -->
+  <section class="hero chase" id="top" aria-label="Night chase">
     <div class="hero__media">
       <img class="hero__still" id="heroStill"
            src="./assets/img/night-gate-1376.webp"
@@ -72,7 +73,24 @@
            fetchpriority="high"/>
       <canvas class="hero__canvas" id="heroCanvas" aria-hidden="true"></canvas>
       <div class="hero__grade" aria-hidden="true"></div>
+      <div class="chase__dim" id="chaseDim" aria-hidden="true"></div>
       <div class="hero__grain" aria-hidden="true"></div>
+    </div>
+
+    <div class="chase__overlay" aria-hidden="true">
+      <div class="chase__crop" id="chaseCrop"><canvas id="chaseCropCanvas" width="1040" height="220"></canvas></div>
+      <div class="chase__lock" id="chaseLock">
+        <span class="chase__corner chase__corner--tl"></span>
+        <span class="chase__corner chase__corner--tr"></span>
+        <span class="chase__corner chase__corner--br"></span>
+        <span class="chase__corner chase__corner--bl"></span>
+        <span class="chase__tag mono" id="chaseTag">license_plate</span>
+      </div>
+    </div>
+
+    <div class="chase__read" id="chaseRead">
+      <div class="chase__board" id="chaseBoard" role="img" aria-label="Recognised plate: 51G-888.99">51G-888.99</div>
+      <p class="chase__note mono" data-i18n="chase_note">SAMPLE PLATE FROM THE REPOSITORY · 1-LINE CAR</p>
     </div>
 
     <div class="hero__content">
@@ -81,25 +99,24 @@
         <span data-i18n="hero_kicker">ANPR · YOLOv8 + EasyOCR · Vietnam</span>
       </p>
       <h1 class="hero__title">
-        <span class="hero__line" data-i18n="hero_l1">Read at</span>
-        <span class="hero__line hero__line--accent" data-i18n="hero_l2">the gate.</span>
+        <span class="hero__line" data-i18n="hero_l1">Read it</span>
+        <span class="hero__line hero__line--accent" data-i18n="hero_l2">on the move.</span>
       </h1>
-      <p class="hero__sub" data-i18n="hero_sub">A car rolls up to the camera at night. YOLOv8 finds the plate, EasyOCR reads it, a format check verifies it. This page is that single shot — told in scroll.</p>
+      <p class="hero__sub" data-i18n="hero_sub">One car, one rainy night. The camera tracks it, locks onto the plate, lays the plate flat and reads it — the whole pipeline, told in one scroll.</p>
       <div class="hero__ctas">
         <a class="btn btn--amber magnetic" href="#demo" data-cursor="cursor_run" data-i18n="hero_cta_demo">Run the live demo</a>
-        <a class="btn btn--ghost magnetic" href="https://github.com/hoang-IT-eng/License-Plate-Recognition-System" target="_blank" rel="noopener" data-cursor="cursor_open" data-i18n="hero_cta_repo">Source on GitHub</a>
+        <a class="btn btn--ghost magnetic" href="./app/" data-cursor="cursor_open" data-i18n="hero_cta_app">Open the app</a>
       </div>
     </div>
 
-    <div class="hero__readout mono" aria-hidden="true">
-      <span>FRAME 1200×896</span>
-      <span class="readout__sep">·</span>
-      <span>CLASS license_plate</span>
-      <span class="readout__sep">·</span>
-      <span>CONF ≥ 0.50</span>
-      <span class="readout__sep">·</span>
-      <span class="readout__amber" data-i18n="hero_scroll">SCROLL — THE CAR APPROACHES</span>
-    </div>
+    <ol class="chase__beats">
+      <li class="chase__beat"><span class="chase__beat-k mono" data-i18n="beat1_k">01 · TRACK</span><p data-i18n="beat1">One car in the rain. The camera stays on it.</p></li>
+      <li class="chase__beat"><span class="chase__beat-k mono" data-i18n="beat2_k">02 · DETECT</span><p data-i18n="beat2">YOLOv8 finds the plate and locks on — headlights, glare and wet asphalt ignored.</p></li>
+      <li class="chase__beat"><span class="chase__beat-k mono" data-i18n="beat3_k">03 · DESKEW</span><p data-i18n="beat3">Four corners, one perspective warp: the angled plate is laid flat.</p></li>
+      <li class="chase__beat"><span class="chase__beat-k mono" data-i18n="beat4_k">04 · READ</span><p data-i18n="beat4">The OCR reads it glyph by glyph — PaddleOCR in v2, Tesseract.js in the browser demo.</p></li>
+    </ol>
+
+    <p class="hero__cue mono" aria-hidden="true"><span class="hero__cue-line"></span><span data-i18n="hero_scroll">SCROLL — FOLLOW THE CAR</span></p>
   </section>
 
   <!-- ══════════ 2 · CAPTURE ══════════ -->
@@ -337,10 +354,6 @@
 
   <!-- ══════════ 7 · CLOSING ══════════ -->
   <section class="closing" id="closing" aria-labelledby="closingTitle">
-    <!-- The same particle canvas re-parents here on approach: the
-         cloud settles into the plate outline + 43C-246.80 glyphs
-         behind the closing words. -->
-    <div class="scan-host closing__host" id="closingHost" aria-hidden="true"></div>
     <h2 class="closing__title" id="closingTitle" data-reveal>
       <span data-i18n="close_l1">Built in the open.</span>
       <span class="closing__title--accent" data-i18n="close_l2">Read the code.</span>
@@ -364,6 +377,8 @@
 <script src="./assets/vendor/gsap.min.js" defer></script>
 <script src="./assets/vendor/ScrollTrigger.min.js" defer></script>
 <script src="./assets/vendor/lenis.min.js" defer></script>
+<script src="./flap.js" defer></script>
+<script src="./chase.js" defer></script>
 <script src="./main.js" defer></script>
 </body>
 </html>

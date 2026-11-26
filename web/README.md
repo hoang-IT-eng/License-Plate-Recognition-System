@@ -2,8 +2,15 @@
 
 Static frontend for brand host `plates-ocr` (Azure App Service **F1 Free**).
 
-- `/` — SaaS landing (hero, features, how it works, demo CTA, pricing)
-- `/app/` — recognition UI: **plate ROI → preprocess → Tesseract.js on crop** (YOLO skipped on F1)
+- `/` — landing. The hero is **Night Chase**: a procedural rainy street in Three.js
+  (`chase3d.js`, no model files) pinned for a few screens. The camera tracks one car,
+  a viewfinder locks onto its plate, the plate is warped flat (CSS homography, the
+  `warpPerspective` idea from `detect_v2.py`) and read on a split-flap board (`flap.js`).
+  `chase.js` owns the hero: capability gate, pin, DOM layer. Reduced motion, automation,
+  software/low-end GPUs and saveData get a static hero (night still + plate as text).
+  QA flags: `?chase=on` forces the 3D scene (e.g. SwiftShader), `?chase=off` forces static.
+- `/app/` — recognition UI: **plate ROI → preprocess → Tesseract.js on crop** (YOLO skipped on F1).
+  The read lands on the same split-flap board (`../flap.js`, `../assets/flap.css`).
 - Mirror demo: https://huyahahdq23123-plates-yolo-ocr.static.hf.space (`../hf-space/`)
 
 YOLO/EasyOCR Python is **not** executed on F1. Run locally from `../license-plate-recognition/`.
